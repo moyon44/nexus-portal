@@ -1,0 +1,1326 @@
+@import "tailwindcss";
+@import "./styles/theme.css";
+@import "./styles/typography.css";
+@import "./styles/skins.css";
+@import "./styles/wrapped.css";
+
+/* Only the app sources: never the backend, backups or build output. */
+@source not "./backend";
+@source not "./backups";
+@source not "./dist";
+/* Folder tints (theme/folders.ts) are built from colour variables at run
+ * time; make sure Tailwind emits every hue's steps. */
+@source inline("bg-{red,orange,yellow,lime,green,teal,cyan,blue,indigo,purple,pink,neutral}-{300,400,500}");
+
+/* ---------------------------------------------------------------------------
+ * Design system: BoardUI, as used by Jellydash.
+ * styles/theme.css and styles/typography.css are copied verbatim from there;
+ * this file carries the subset of Jellydash's globals.css the portal uses.
+ *
+ * Dark mode is class based: `.dark` on <html> flips every semantic token.
+ * Components use tokens (bg-background-*, text-text-*, border-border-*) and
+ * never `dark:` overrides with raw colors.
+ * --------------------------------------------------------------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --font-inter: "Inter";
+  --font-mono-source: "JetBrains Mono";
+}
+
+html,
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-variant-ligatures: contextual;
+  font-kerning: normal;
+}
+
+/* Secondary text a notch darker (light) / lighter (dark) than BoardUI's
+ * defaults: grey on grey read too faint on the home page. Both land at about
+ * 60 % of the primary text's contrast. */
+:root {
+  --color-text-secondary: var(--color-neutral-600);
+  --color-text-tertiary: var(--color-neutral-500);
+}
+.dark {
+  --color-text-secondary: var(--color-neutral-300);
+  --color-text-tertiary: var(--color-neutral-400);
+}
+
+html {
+  color-scheme: light;
+  background-color: var(--color-background-full);
+}
+html.dark {
+  color-scheme: dark;
+}
+body {
+  background-color: var(--color-background-full);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+}
+
+/* Page ground: a soft radial glow of the accent over the base colour, with a
+ * faint grain so large dark areas don't band. Fixed, behind everything. */
+.app-ground {
+  background-color: var(--color-background-full);
+}
+
+/* Aurora: three blurred blobs drifting very slowly, tinted by the time of
+ * day (data-daypart on .app-ground). Transforms only, so it stays cheap. */
+.app-aurora {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 1.2s ease;
+}
+.app-aurora span {
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 9999px;
+  filter: blur(100px);
+  opacity: 0.1;
+  transition: background-color 3s ease;
+  animation: aurora-a 42s ease-in-out infinite alternate;
+}
+.dark .app-aurora span {
+  opacity: 0.16;
+}
+.app-aurora span:nth-child(1) {
+  background-color: var(--aurora-1);
+  top: -34vmax;
+  left: -12vmax;
+}
+.app-aurora span:nth-child(2) {
+  background-color: var(--aurora-2);
+  top: -30vmax;
+  right: -22vmax;
+  animation-name: aurora-b;
+  animation-duration: 54s;
+}
+.app-aurora span:nth-child(3) {
+  background-color: var(--aurora-3);
+  top: 20vmax;
+  left: 25vmax;
+  width: 45vmax;
+  height: 45vmax;
+  animation-name: aurora-c;
+  animation-duration: 66s;
+}
+.dark .app-aurora span:nth-child(3) {
+  opacity: 0.07;
+}
+@keyframes aurora-a {
+  to { transform: translate(18vmax, 8vmax) scale(1.15); }
+}
+@keyframes aurora-b {
+  to { transform: translate(-16vmax, 10vmax) scale(0.9); }
+}
+@keyframes aurora-c {
+  to { transform: translate(-20vmax, -12vmax) scale(1.2); }
+}
+[data-daypart="morning"] { --aurora-1: #38bdf8; --aurora-2: #f9a8d4; --aurora-3: #fcd34d; }
+[data-daypart="day"] { --aurora-1: var(--color-accent-500); --aurora-2: #22d3ee; --aurora-3: var(--color-accent-300); }
+[data-daypart="evening"] { --aurora-1: #6366f1; --aurora-2: #a855f7; --aurora-3: #fb923c; }
+[data-daypart="night"] { --aurora-1: #1e40af; --aurora-2: #4c1d95; --aurora-3: #0e7490; }
+/* Night focus: the page goes quieter still. */
+[data-focus] .app-aurora {
+  opacity: 0.45;
+}
+
+.app-ground::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.dark .app-ground::after {
+  opacity: 0.07;
+}
+/* Faint dot grid, fading out from the top right. */
+.app-ground::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle at center, color-mix(in srgb, var(--color-text-primary) 9%, transparent) 1px, transparent 1.2px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 80% 60% at 70% 0%, #000 10%, transparent 75%);
+}
+
+/* Theme switches: freeze component transitions so the new palette lands at
+ * once instead of fading tile by tile. */
+.theme-transitioning,
+.theme-transitioning * {
+  transition: none !important;
+}
+
+/* Tailwind expands shadow utilities at build time; point them back at the
+ * live dark elevation tokens. */
+.dark .shadow-2xs { --tw-shadow: var(--shadow-2xs); }
+.dark .shadow-xs { --tw-shadow: var(--shadow-xs); }
+.dark .shadow-sm { --tw-shadow: var(--shadow-sm); }
+.dark .shadow-md { --tw-shadow: var(--shadow-md); }
+.dark .shadow-lg { --tw-shadow: var(--shadow-lg); }
+.dark .shadow-xl { --tw-shadow: var(--shadow-xl); }
+.dark .shadow-card { --tw-shadow: var(--shadow-card); }
+.dark .shadow-dropdown { --tw-shadow: var(--shadow-dropdown); }
+.dark .shadow-sidebar { --tw-shadow: var(--shadow-sidebar); }
+
+/* Quiet scrollbars on the token palette. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-button-default) transparent;
+}
+
+/* Hide default number-input spinners and the search clear button. */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+/* Range inputs ride the accent ramp. */
+input[type="range"] {
+  accent-color: var(--color-accent-500);
+}
+
+/* iOS Safari zooms on focus below 16px. */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Soft fade applied to an animated number each time its target changes. */
+@keyframes number-fade {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+.animate-number-fade {
+  animation: number-fade 220ms ease-out;
+}
+
+/* Bars grow up from the baseline; a per-bar delay staggers them left→right. */
+@keyframes bar-rise {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.animate-bar-rise {
+  transform-origin: bottom;
+  animation: bar-rise 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Tiles and rows fade up into place on first render. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise-in {
+  animation: rise-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Slide-over panel (service details). */
+@keyframes panel-in {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.animate-panel-in {
+  animation: panel-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Dialog pop (command palette). */
+@keyframes dialog-in {
+  from { transform: scale(0.97); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.animate-dialog-in {
+  animation: dialog-in 180ms ease-out both;
+}
+
+/* Route and layout changes cross-fade (document.startViewTransition). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-aurora span {
+    animation: none;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+  .animate-bar-rise,
+  .animate-rise-in,
+  .animate-panel-in,
+  .animate-dialog-in {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Home page tiles. One accent for hover; red only for outages.
+ * --------------------------------------------------------------------------- */
+@layer components {
+.tile-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 220px), 1fr));
+}
+/* Phones: always two columns. */
+@media (max-width: 639px) {
+  .tile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .tile,
+  .tile[data-density="compact"] {
+    padding: 10px;
+    gap: 8px;
+  }
+}
+.tile {
+  --mx: -999px;
+  --my: -999px;
+  isolation: isolate;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  /* A faint wash of the brand colour from the logo side. */
+  background-color: color-mix(in srgb, var(--color-background-secondary-default) 70%, transparent);
+  background-image: linear-gradient(100deg, color-mix(in oklch, var(--brand, transparent) 10%, transparent), transparent 55%);
+  border: 1px solid var(--color-border-button-default);
+  color: inherit;
+  text-decoration: none;
+  outline: none;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.3s ease, opacity 0.15s ease;
+}
+.tile:hover {
+  /* Tilts toward the pointer (--rx/--ry set by the home page). */
+  transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-3px);
+  background-color: var(--color-background-secondary-hover);
+  border-color: color-mix(in oklch, var(--brand, var(--color-accent-400)) 45%, transparent);
+  box-shadow: 0 18px 40px -18px color-mix(in oklch, var(--brand, var(--color-accent-500)) 55%, transparent);
+  transition-duration: 0.12s;
+}
+/* Spotlight: a soft fill under the pointer and a lit border near it. */
+.tile::before,
+.tile::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.tile::before {
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(260px circle at var(--mx) var(--my), color-mix(in oklch, var(--brand, var(--color-accent-400)) 16%, transparent), transparent 70%);
+}
+.tile::after {
+  inset: -1px;
+  padding: 1px;
+  background: radial-gradient(240px circle at var(--mx) var(--my), var(--brand, var(--color-accent-300)), color-mix(in oklch, var(--brand, var(--color-accent-400)) 35%, transparent) 40%, transparent 75%);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+.tile-grid:hover .tile::after {
+  opacity: 1;
+}
+.tile:hover::before {
+  opacity: 1;
+}
+.tile[data-offline="true"]::after {
+  background: radial-gradient(180px circle at var(--mx) var(--my), color-mix(in oklch, var(--color-red-400) 70%, transparent), transparent 70%);
+}
+.tile:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-border-focus-ring);
+}
+.tile[data-offline="true"] {
+  border-color: color-mix(in oklch, var(--color-red-500) 35%, transparent);
+  background: color-mix(in oklch, var(--color-red-500) 6%, var(--color-background-secondary-default));
+}
+.tile[data-density="compact"] {
+  padding: 10px 12px;
+  gap: 10px;
+  border-radius: 12px;
+}
+.tile .tile-meta {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+/* Card layers (components/ServiceTile.tsx → .tile-fx). */
+.tile-fx {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+/* Ambient: the logo itself, huge and blurred, glowing behind the card. */
+.tile-ambient {
+  position: absolute;
+  left: -34px;
+  top: 50%;
+  width: 150px;
+  height: 150px;
+  object-fit: contain;
+  translate: 0 -50%;
+  filter: blur(30px) saturate(1.8);
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.45s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tile:hover .tile-ambient {
+  opacity: 0.32;
+  transform: scale(1) translate(calc(var(--lx, 0px) * -3), calc(var(--ly, 0px) * -3));
+}
+.dark .tile:hover .tile-ambient {
+  opacity: 0.5;
+}
+/* Glare: a soft light where the pointer is, like on glossy card stock. */
+.tile-glare {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--px, 50%) var(--py, 50%), rgb(255 255 255 / 0.22), transparent 50%);
+  mix-blend-mode: soft-light;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.tile:hover .tile-glare {
+  opacity: 1;
+}
+/* Holo foil on favourites: an iridescent band that slides with the tilt. */
+.tile-holo {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(115deg, transparent 22%, #ff5ea8 32%, #ffd36e 40%, #5effc1 48%, #5ec8ff 56%, #b45eff 64%, transparent 74%),
+    repeating-linear-gradient(55deg, rgb(255 255 255 / 0.08) 0 2px, transparent 2px 7px);
+  background-size: 260% 260%, 100% 100%;
+  background-position: var(--px, 50%) var(--py, 50%), 0 0;
+  mix-blend-mode: color-dodge;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.tile:hover .tile-holo {
+  opacity: 0.2;
+}
+:root:not(.dark) .tile-holo {
+  mix-blend-mode: multiply;
+}
+:root:not(.dark) .tile:hover .tile-holo {
+  opacity: 0.14;
+}
+/* Favourites at rest: a hairline of foil along the top edge. */
+.tile[data-fav]::before {
+  opacity: 1;
+  background:
+    linear-gradient(90deg, transparent 10%, color-mix(in oklch, #ff5ea8 60%, transparent), color-mix(in oklch, #5ec8ff 60%, transparent), color-mix(in oklch, #b45eff 60%, transparent), transparent 90%) top / 100% 1px no-repeat,
+    radial-gradient(260px circle at var(--mx) var(--my), color-mix(in oklch, var(--brand, var(--color-accent-400)) 16%, transparent), transparent 70%);
+}
+.tile[data-fav]:not(:hover)::before {
+  background: linear-gradient(90deg, transparent 10%, color-mix(in oklch, #ff5ea8 55%, transparent), color-mix(in oklch, #5ec8ff 55%, transparent), color-mix(in oklch, #b45eff 55%, transparent), transparent 90%) top / 100% 1px no-repeat;
+}
+
+/* Logos answer the pointer: a springy tilt on hover, a press on click. */
+.tile .tile-logo {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), translate 0.2s ease-out, filter 0.3s ease;
+}
+.tile:hover .tile-logo {
+  transform: scale(1.1) rotate(-4deg);
+  translate: var(--lx, 0px) var(--ly, 0px);
+  filter: drop-shadow(0 6px 10px color-mix(in oklch, var(--brand, var(--color-accent-500)) 55%, transparent));
+}
+.tile:active .tile-logo {
+  transform: scale(0.9);
+  transition-duration: 0.1s;
+}
+
+/* Staggered entrance. Uses `translate`, not `transform`, and no forwards
+ * fill, so the hover lift still applies once the tile has landed. */
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+.tile-enter {
+  animation: tile-in 340ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tile-enter {
+    animation: none;
+  }
+  .tile .tile-logo {
+    transition: none;
+    transform: none !important;
+    translate: none !important;
+  }
+  .tile-ambient,
+  .tile-holo,
+  .icon-squircle,
+  .row-item .tile-logo {
+    transition: none;
+  }
+  .icon-item:hover .icon-squircle,
+  .row-item:hover .tile-logo {
+    transform: none;
+  }
+  .tile,
+  .tile:hover {
+    transition: none;
+    transform: none;
+  }
+}
+}
+
+
+/* ---------------------------------------------------------------------------
+ * Motion. Everything below stops under prefers-reduced-motion (end of block).
+ * --------------------------------------------------------------------------- */
+
+/* 1. Rolling digits (components/ui/roll.tsx). */
+.roll-digit {
+  position: relative;
+  display: inline-block;
+  height: 1lh;
+  overflow: hidden;
+}
+.roll-column {
+  position: absolute;
+  inset: 0 0 auto 0;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.roll-column > span {
+  height: 1lh;
+  text-align: center;
+}
+
+/* 2. Status dots: a slow breath when all is well, a ripple when down. */
+@keyframes dot-breathe {
+  0%, 100% { transform: scale(0.6); opacity: 0; }
+  50% { transform: scale(1.5); opacity: 0.35; }
+}
+@keyframes dot-ripple {
+  from { transform: scale(1); opacity: 0.7; }
+  to { transform: scale(3.2); opacity: 0; }
+}
+.status-dot[data-state="online"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--color-chart-7);
+  animation: dot-breathe 4s ease-in-out infinite;
+}
+.status-dot[data-state="offline"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--color-chart-3);
+  animation: dot-ripple 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* 3. Tree: on opening, each connector draws down, then its link fades in. */
+@keyframes tree-draw {
+  from { clip-path: inset(0 0 100% 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@keyframes tree-row {
+  from { opacity: 0; translate: -4px 0; }
+}
+.tree-cascade .tree-line {
+  animation: tree-draw 0.22s ease-out backwards;
+  animation-delay: calc(var(--i) * 55ms);
+}
+.tree-cascade .tree-item {
+  animation: tree-row 0.3s ease-out backwards;
+  animation-delay: calc(var(--i) * 55ms + 90ms);
+}
+
+/* 4. Greeting written letter by letter, out of a blur (first visit of the day). */
+@keyframes letter-in {
+  from { opacity: 0; filter: blur(8px); translate: 0 6px; }
+}
+.letter-in {
+  display: inline-block;
+  white-space: pre;
+  animation: letter-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--i) * 32ms);
+}
+
+/* 5. "Ajouter": a light sweeps across now and then; the + turns on hover. */
+@keyframes shimmer {
+  0%, 82% { translate: -120% 0; }
+  100% { translate: 220% 0; }
+}
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.35), transparent);
+  pointer-events: none;
+  animation: shimmer 7s ease-in-out infinite;
+}
+.btn-shimmer svg {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.btn-shimmer:hover svg {
+  transform: rotate(90deg);
+}
+
+/* 6. Shared-element morphs (tile → details, "Ajouter" → quick add). */
+::view-transition-group(service-detail),
+::view-transition-group(quick-add) {
+  animation-duration: 0.42s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+::view-transition-old(service-detail),
+::view-transition-new(service-detail),
+::view-transition-old(quick-add),
+::view-transition-new(quick-add) {
+  height: 100%;
+  object-fit: cover;
+  overflow: hidden;
+}
+
+/* 8. Theme switch: the new theme is revealed by a growing circle. */
+.theme-reveal::view-transition-old(root),
+.theme-reveal::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+.theme-reveal::view-transition-new(root) {
+  z-index: 1;
+}
+
+/* 11. Border beam: a spark travels round a tile with something going on. */
+@property --beam-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes beam-spin {
+  to { --beam-angle: 360deg; }
+}
+.tile-beam {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--beam-angle),
+    transparent 0deg,
+    transparent 230deg,
+    color-mix(in oklch, var(--color-accent-400) 45%, transparent) 300deg,
+    color-mix(in oklch, var(--color-accent-200) 60%, white) 350deg,
+    transparent 360deg
+  );
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: beam-spin 3.2s linear infinite;
+}
+
+/* 13. Back online: a green glow and a few sparks. */
+@keyframes celebrate-glow {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-chart-7) 70%, transparent); }
+  100% { box-shadow: 0 0 0 14px color-mix(in oklch, var(--color-chart-7) 0%, transparent); }
+}
+@keyframes spark {
+  from { transform: rotate(var(--a)) translateX(0) scale(1); opacity: 1; }
+  to { transform: rotate(var(--a)) translateX(46px) scale(0.2); opacity: 0; }
+}
+.tile[data-celebrate] {
+  animation: celebrate-glow 1.2s ease-out 2;
+}
+.tile-sparks {
+  position: absolute;
+  left: 34px;
+  top: 50%;
+  pointer-events: none;
+  z-index: 5;
+}
+.tile-sparks > span {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px;
+  border-radius: 9999px;
+  background: var(--color-chart-7);
+  animation: spark 0.9s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  animation-delay: calc(var(--k) * 25ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roll-column { transition: none; }
+  .status-dot[data-state="online"]::after,
+  .status-dot[data-state="offline"]::after,
+  .tree-cascade .tree-line,
+  .tree-cascade .tree-item,
+  .letter-in,
+  .btn-shimmer::after,
+  .tile-beam,
+  .tile[data-celebrate],
+  .tile-sparks > span {
+    animation: none;
+  }
+  .tile-sparks { display: none; }
+}
+
+
+/* ---------------------------------------------------------------------------
+ * Display styles (components/views.tsx): Liste, Icônes, Bento, Texte.
+ * --------------------------------------------------------------------------- */
+
+/* Liste: a single panel, one line per service. */
+.list-view {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid var(--color-border-button-default);
+  background: color-mix(in srgb, var(--color-background-secondary-default) 65%, transparent);
+}
+.list-view > * + * {
+  border-top: 1px solid var(--color-separator-border);
+}
+.row-item {
+  --mx: -999px;
+  --my: -999px;
+  isolation: isolate;
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1.4fr) auto 28px;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 12px 9px 14px;
+  transition: background-color 0.15s ease;
+}
+@media (min-width: 640px) {
+  .row-item { grid-template-columns: 32px minmax(0, 1.4fr) 64px auto 28px; }
+}
+@media (min-width: 768px) {
+  .row-item { grid-template-columns: 32px minmax(0, 1.4fr) minmax(0, 0.8fr) 64px auto 28px; }
+}
+@media (min-width: 1024px) {
+  .row-item { grid-template-columns: 32px minmax(0, 1.4fr) minmax(0, 0.7fr) minmax(0, 1fr) 64px auto 28px; }
+}
+@media (min-width: 1280px) {
+  .row-item { grid-template-columns: 32px minmax(0, 1.4fr) minmax(0, 0.7fr) minmax(0, 1fr) 64px 100px auto 28px; }
+}
+.row-item:hover {
+  background: linear-gradient(90deg, color-mix(in oklch, var(--brand, var(--color-accent-400)) 12%, transparent), transparent 70%);
+}
+.row-item[data-offline="true"] {
+  background: color-mix(in oklch, var(--color-red-500) 7%, transparent);
+}
+.row-item .tile-logo {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.row-item:hover .tile-logo {
+  transform: scale(1.1) rotate(-4deg);
+}
+
+/* Icônes: app icons on a home screen. */
+.icon-grid {
+  display: grid;
+  gap: 18px 8px;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+}
+@media (max-width: 639px) {
+  .icon-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 4px; }
+}
+.icon-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 18px;
+}
+.icon-squircle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  isolation: isolate;
+  overflow: visible;
+  background:
+    linear-gradient(160deg, color-mix(in oklch, var(--brand, var(--color-accent-400)) 22%, transparent), transparent 70%),
+    var(--color-background-secondary-default);
+  border: 1px solid color-mix(in oklch, var(--brand, var(--color-border-button-default)) 25%, var(--color-border-button-default));
+  box-shadow: 0 8px 22px -12px color-mix(in oklch, var(--brand, #000) 60%, transparent);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+}
+.icon-ambient {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  filter: blur(18px) saturate(1.8);
+  opacity: 0;
+  transform: scale(1.1);
+  transition: opacity 0.35s ease;
+}
+.icon-item:hover .icon-squircle {
+  transform: translateY(-4px) scale(1.08);
+  box-shadow: 0 16px 30px -12px color-mix(in oklch, var(--brand, var(--color-accent-500)) 70%, transparent);
+}
+.icon-item:hover .icon-ambient {
+  opacity: 0.55;
+}
+.icon-item:active .icon-squircle {
+  transform: scale(0.92);
+  transition-duration: 0.1s;
+}
+.icon-item[data-offline="true"] .icon-squircle {
+  border-color: color-mix(in oklch, var(--color-red-500) 50%, transparent);
+  filter: grayscale(0.6);
+}
+.icon-item[data-celebrate] .icon-squircle {
+  animation: celebrate-glow 1.2s ease-out 2;
+}
+
+/* Bento: big cards for favourites and busy services, small ones around. */
+.bento-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-auto-rows: 62px;
+  grid-auto-flow: dense;
+}
+.bento-hero {
+  grid-column: span 2;
+  grid-row: span 3;
+}
+/* A live widget adds lines: one more row. */
+.bento-hero-live {
+  grid-row: span 4;
+}
+@media (max-width: 639px) {
+  .bento-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .bento-hero { grid-column: span 2; grid-row: span 3; }
+  .bento-hero-live { grid-row: span 4; }
+}
+.tile.tile-hero {
+  height: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, color-mix(in oklch, var(--brand, transparent) 22%, transparent), transparent 60%);
+}
+.tile.tile-hero:hover {
+  transform: perspective(900px) rotateX(calc(var(--rx, 0deg) * 0.6)) rotateY(calc(var(--ry, 0deg) * 0.6)) translateY(-3px);
+}
+.tile-ambient-hero {
+  left: -30px;
+  top: 30px;
+  width: 220px;
+  height: 220px;
+  translate: 0 0;
+}
+.tile.tile-hero .tile-ambient {
+  opacity: 0.22;
+  transform: scale(1);
+}
+.dark .tile.tile-hero .tile-ambient {
+  opacity: 0.3;
+}
+.bento-grid > .bento-small > .tile {
+  height: 100%;
+}
+
+/* Texte: a start page. */
+.text-columns {
+  column-gap: 40px;
+  columns: 1;
+}
+@media (min-width: 640px) { .text-columns { columns: 2; } }
+@media (min-width: 1100px) { .text-columns { columns: 3; } }
+@media (min-width: 1500px) { .text-columns { columns: 4; } }
+.text-columns > section {
+  break-inside: avoid;
+  margin-bottom: 32px;
+}
+.text-list {
+  display: flex;
+  flex-direction: column;
+}
+.text-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 32px;
+  padding: 0 8px;
+  margin: 0 -8px;
+  border-radius: 8px;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  transition: color 0.15s ease, background-color 0.15s ease, padding 0.2s ease;
+}
+.text-link:hover {
+  color: var(--color-text-primary);
+  background: var(--color-background-secondary-default);
+  padding-left: 12px;
+}
+
+
+/* Dynamic Island (components/Island.tsx). */
+@keyframes island-in {
+  from { transform: scale(0.6) translateY(-6px); opacity: 0; }
+}
+.island {
+  transition: width 0.55s cubic-bezier(0.32, 1.25, 0.5, 1), opacity 0.25s ease 0.18s, transform 0.3s ease;
+  animation: island-in 0.35s cubic-bezier(0.32, 1.25, 0.5, 1);
+}
+.island-closing {
+  opacity: 0;
+  transform: scale(0.85);
+}
+@keyframes eq {
+  0%, 100% { height: 30%; }
+  50% { height: 100%; }
+}
+.island-eq > span {
+  width: 3px;
+  border-radius: 2px;
+  background: rgb(125 211 252);
+  animation: eq 0.9s ease-in-out infinite;
+}
+.island-eq > span:nth-child(2) { animation-delay: 0.2s; }
+.island-eq > span:nth-child(3) { animation-delay: 0.4s; }
+@media (prefers-reduced-motion: reduce) {
+  .island { animation: none; transition: opacity 0.2s; }
+  .island-eq > span { animation: none; height: 60%; }
+}
+
+
+/* Multi-selection (pages/Dashboard.tsx). */
+[data-selected] {
+  border-radius: 16px;
+}
+[data-selected]::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 17px;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px var(--color-accent-400), 0 0 22px -4px color-mix(in oklch, var(--color-accent-400) 60%, transparent);
+  animation: select-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes select-pop {
+  from { transform: scale(0.96); opacity: 0; }
+}
+.select-check {
+  position: absolute;
+  top: -7px;
+  left: -7px;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  color: white;
+  background: var(--color-accent-500);
+  box-shadow: 0 0 0 2px var(--color-background-full);
+  pointer-events: none;
+  animation: select-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes bar-in {
+  from { transform: translateY(24px) scale(0.96); opacity: 0; }
+}
+.selection-bar {
+  animation: bar-in 0.35s cubic-bezier(0.32, 1.25, 0.5, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-selected]::after, .select-check, .selection-bar { animation: none; }
+}
+
+
+/* ===========================================================================
+ * Style « Papier » (html[data-skin="paper"]): cream paper with grain and
+ * fibres, kraft pills, ink doodles, bold type, handwriting for annotations.
+ * Always light; the ink palette replaces the accent colour.
+ * =========================================================================== */
+html[data-skin="paper"] {
+  color-scheme: light;
+  --paper: #f1eadb;
+  --kraft: #ddcfb0;
+  --kraft-hover: #d4c49f;
+  --ink: #1d1a14;
+  --ink-soft: #4b4335;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .25 0 0 0 0 .2 0 0 0 0 .12 0 0 0 .3 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  --fibres: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012 .09' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .38 0 0 0 0 .25 0 0 0 .08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+
+  --color-background-full: var(--paper);
+  --color-background-primary-default: #f6f1e6;
+  --color-background-secondary-default: var(--kraft);
+  --color-background-secondary-hover: var(--kraft-hover);
+  --color-background-tertiary-default: #cfbf9c;
+  --color-background-tertiary-hover: #c6b48f;
+  --color-border-button-default: rgb(70 52 22 / 0.14);
+  --color-border-button-hover: rgb(70 52 22 / 0.3);
+  --color-border-button-white: transparent;
+  --color-separator-border: rgb(70 52 22 / 0.16);
+  --color-border-focus-ring: var(--ink);
+  --color-text-primary: var(--ink);
+  --color-text-secondary: var(--ink-soft);
+  --color-text-tertiary: #7a6f5b;
+  --color-text-placeholder: #9b907b;
+  --color-foreground-icon-primary: var(--ink);
+  --color-foreground-icon-secondary: #5c5343;
+  --color-foreground-icon-tertiary: #8b806b;
+  --color-dropdown-item-hover-background: rgb(70 52 22 / 0.08);
+  --color-kbd-background: #cfbf9c;
+  --color-kbd-foreground: #3b3326;
+  --color-chart-track: rgb(70 52 22 / 0.13);
+  --color-stat-card-icon-background: transparent;
+  /* Ink "accent": primary buttons become black ink pills. */
+  --color-accent-50: #f3eee2;
+  --color-accent-100: #e6dcc6;
+  --color-accent-200: #cbbd9c;
+  --color-accent-300: #9c8b69;
+  --color-accent-400: #6d5f45;
+  --color-accent-500: #2f281d;
+  --color-accent-600: #1d1a14;
+  --color-accent-700: #15120d;
+  --color-accent-800: #0f0d09;
+  --color-accent-900: #0a0906;
+  --color-accent-950: #050403;
+  --shadow-card: 0 1px 0 rgb(70 52 22 / 0.12);
+  --shadow-sidebar: none;
+  --shadow-dropdown: 0 3px 0 rgb(70 52 22 / 0.18), 0 18px 40px -18px rgb(70 52 22 / 0.35);
+  --shadow-waitlist: 0 4px 0 rgb(70 52 22 / 0.2), 0 30px 60px -24px rgb(70 52 22 / 0.4);
+}
+html[data-skin="paper"] body {
+  font-family: "Geist", var(--font-sans);
+}
+
+/* Ground: paper, grain, long fibres. No aurora, no dot grid. */
+html[data-skin="paper"] .app-ground {
+  background-color: var(--paper);
+  background-image: var(--fibres), var(--grain);
+  background-blend-mode: multiply;
+}
+html[data-skin="paper"] .app-ground::before { display: none; }
+html[data-skin="paper"] .app-ground::after {
+  opacity: 0.22;
+  mix-blend-mode: multiply;
+  background-image: var(--grain);
+}
+html[data-skin="paper"] .app-aurora { display: none; }
+
+/* The sidebar reads better on paper a little less faded. */
+html[data-skin="paper"] aside.opacity-60 {
+  opacity: 0.85;
+}
+
+/* Handwriting for the greeting and the annotations. */
+html[data-skin="paper"] .paper-hand {
+  font-family: "Caveat", cursive;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* Tiles: kraft pills with their own grain; a paper lift on hover. */
+html[data-skin="paper"] .tile {
+  border: none;
+  border-radius: 9999px;
+  padding-left: 12px;
+  background-color: var(--kraft);
+  background-image: var(--grain);
+  background-blend-mode: multiply;
+  box-shadow: inset 0 0 0 1px rgb(70 52 22 / 0.06);
+}
+html[data-skin="paper"] .tile:hover {
+  transform: rotate(-1.2deg) translateY(-2px);
+  background-color: var(--kraft-hover);
+  border-color: transparent;
+  box-shadow: 0 5px 0 -1px rgb(70 52 22 / 0.2), inset 0 0 0 1px rgb(70 52 22 / 0.08);
+}
+html[data-skin="paper"] [data-flip]:nth-child(even) > .tile:hover { transform: rotate(1deg) translateY(-2px); }
+html[data-skin="paper"] .tile.tile-hero { border-radius: 30px; background-image: var(--grain); }
+html[data-skin="paper"] .tile.tile-hero:hover { transform: rotate(-0.6deg) translateY(-2px); }
+html[data-skin="paper"] .tile::after,
+html[data-skin="paper"] .tile-fx,
+html[data-skin="paper"] .tile-beam { display: none; }
+/* Outage: a red pencil ring. */
+html[data-skin="paper"] .tile[data-offline="true"] {
+  background-color: #e8cdbd;
+  box-shadow: 0 0 0 2px #b8432f;
+}
+/* Favourites: a strip of washi tape. */
+html[data-skin="paper"] .tile::before { display: none; }
+html[data-skin="paper"] [data-fav].tile::before,
+html[data-skin="paper"] .tile[data-fav]::before {
+  display: block;
+  opacity: 1;
+  inset: auto;
+  top: -9px;
+  left: 50%;
+  width: 58px;
+  height: 18px;
+  z-index: 2;
+  border-radius: 2px;
+  translate: -50% 0;
+  rotate: -4deg;
+  background: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.18) 0 6px, transparent 6px 12px), rgb(214 180 120 / 0.78);
+  box-shadow: 0 1px 1px rgb(70 52 22 / 0.15);
+  mask: none;
+  clip-path: polygon(3% 0, 97% 4%, 100% 50%, 96% 100%, 2% 96%, 0 45%);
+}
+/* Logos in ink; they get their colour back on hover, like colouring in. */
+html[data-skin="paper"] .tile-logo > span:first-child,
+html[data-skin="paper"] .row-item .tile-logo,
+html[data-skin="paper"] .icon-squircle {
+  background: transparent;
+}
+html[data-skin="paper"] .tile-logo img,
+html[data-skin="paper"] .tile-logo svg,
+html[data-skin="paper"] .icon-squircle > img:not(.icon-ambient),
+html[data-skin="paper"] .icon-squircle > svg,
+html[data-skin="paper"] [data-dock-icon] img,
+html[data-skin="paper"] [data-dock-icon] svg {
+  filter: grayscale(1) contrast(1.8) brightness(0.55);
+  mix-blend-mode: multiply;
+  transition: filter 0.35s ease;
+}
+html[data-skin="paper"] .tile:hover .tile-logo img,
+html[data-skin="paper"] .tile:hover .tile-logo svg,
+html[data-skin="paper"] .row-item:hover .tile-logo img,
+html[data-skin="paper"] .icon-item:hover .icon-squircle > img,
+html[data-skin="paper"] .icon-item:hover .icon-squircle > svg,
+html[data-skin="paper"] a:hover [data-dock-icon] img,
+html[data-skin="paper"] a:hover [data-dock-icon] svg {
+  filter: none;
+}
+html[data-skin="paper"] .tile:hover .tile-logo {
+  filter: none;
+}
+html[data-skin="paper"] .status-dot {
+  --tw-ring-color: var(--kraft);
+}
+
+/* Other styles. */
+html[data-skin="paper"] .list-view {
+  border: none;
+  background-color: var(--kraft);
+  background-image: var(--grain);
+  background-blend-mode: multiply;
+  border-radius: 26px;
+}
+html[data-skin="paper"] .row-item:hover { background: rgb(70 52 22 / 0.07); }
+html[data-skin="paper"] .icon-squircle {
+  border: none;
+  border-radius: 9999px;
+  background-color: var(--kraft);
+  background-image: var(--grain);
+  background-blend-mode: multiply;
+  box-shadow: 0 3px 0 -1px rgb(70 52 22 / 0.18);
+}
+html[data-skin="paper"] .icon-ambient { display: none; }
+html[data-skin="paper"] .icon-item:hover .icon-squircle {
+  transform: rotate(-6deg) translateY(-3px) scale(1.06);
+  box-shadow: 0 6px 0 -1px rgb(70 52 22 / 0.22);
+}
+html[data-skin="paper"] [data-dock-icon] {
+  border-radius: 9999px;
+  background-color: var(--kraft);
+  background-image: var(--grain);
+  background-blend-mode: multiply;
+  box-shadow: 0 3px 0 -1px rgb(70 52 22 / 0.18);
+}
+html[data-skin="paper"] .text-link:hover { background: rgb(70 52 22 / 0.07); }
+html[data-skin="paper"] [data-selected]::after {
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+/* Section headings: bold, with a doodle and a pen underline drawn on hover. */
+html[data-skin="paper"] .section-title {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.paper-underline path {
+  stroke-dasharray: 220;
+  stroke-dashoffset: 220;
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.45, 0, 0.2, 1);
+}
+.group\/section:hover .paper-underline path {
+  stroke-dashoffset: 0;
+}
+@keyframes doodle-wiggle {
+  0%, 100% { rotate: 0deg; }
+  25% { rotate: -8deg; }
+  75% { rotate: 8deg; }
+}
+.group\/section:hover .paper-doodle {
+  animation: doodle-wiggle 0.5s ease-in-out;
+}
+
+/* Wobbling letters (components/WobbleText.tsx). */
+.wobble-letter {
+  display: inline-block;
+  white-space: pre;
+  will-change: transform;
+}
+
+/* Torn paper scraps glued in the corners. */
+.paper-scrap {
+  position: fixed;
+  z-index: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 1px rgb(70 52 22 / 0.25));
+}
+/* Pen annotation with a drawn arrow. */
+.paper-arrow path {
+  stroke-dasharray: 400;
+  stroke-dashoffset: 400;
+  animation: draw-arrow 1.1s 0.4s cubic-bezier(0.45, 0, 0.2, 1) forwards;
+}
+@keyframes draw-arrow {
+  to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paper-underline path, .paper-arrow path { transition: none; animation: none; stroke-dashoffset: 0; }
+  .group\/section:hover .paper-doodle { animation: none; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Table primitive — same recipe as Jellydash's `.bui-table`. In the
+ * components layer so utilities on a cell (padding, colour) still win.
+ * --------------------------------------------------------------------------- */
+@layer components {
+.bui-table {
+  @apply w-full border-collapse text-left;
+}
+.bui-table th {
+  @apply px-3 py-2.5 text-left align-middle text-body-medium text-text-tertiary whitespace-nowrap outline-none;
+  background-color: var(--color-background-secondary-default);
+  border-top: 1px solid var(--color-separator-border);
+  border-bottom: 1px solid var(--color-separator-border);
+}
+.bui-table td {
+  @apply px-3 py-2.5 align-middle text-body-medium text-text-primary outline-none;
+}
+.bui-table tbody tr {
+  @apply transition-colors duration-150;
+  border-bottom: 1px solid var(--color-separator-border);
+}
+.bui-table tbody tr:hover {
+  background-color: var(--color-background-primary-hover);
+}
+}
+
+/* ===========================================================================
+ * Lite mode (lib/lite.ts, per device): drop what the graphics chip redraws
+ * every frame. The layout and the styles stay; the ground stops drifting,
+ * nothing blurs what's behind it, looping decorations hold still.
+ * =========================================================================== */
+html[data-lite] :is(.app-aurora span, .tile-beam, .crt-overlay, .sw-stars, .sw-grid, .wr-shapes span, .wr-orbit),
+html[data-lite] .status-dot[data-state="online"]::after,
+html[data-lite] .btn-shimmer::after,
+html[data-lite] .crt-overlay::after,
+html[data-lite] .update-badge::after {
+  animation: none !important;
+}
+html[data-lite] *,
+html[data-lite] *::before,
+html[data-lite] *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+/* Glass without its blur: panels over other content go near-opaque. */
+html[data-lite][data-skin="glass"] :is([role="dialog"], [role="menu"], aside > div, .tile-back) {
+  background-color: color-mix(in oklch, var(--color-background-secondary-default) 94%, transparent) !important;
+}
+html[data-lite][data-skin="glass"] :is(.tile, .icon-squircle, [data-dock-icon], .list-view) {
+  background-color: var(--glass-hover);
+}
+/* Heavy blurs that follow the pointer on hover. */
+html[data-lite] :is(.tile-ambient, .icon-ambient) {
+  display: none;
+}
+
+/* Home Assistant light panel (components/ha/LightPanel.tsx): the white
+ * slider shows its range, warm to cool, on the track itself. */
+.ha-kelvin {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 10px;
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.1);
+  cursor: pointer;
+}
+.ha-kelvin::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid var(--color-text-primary);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
+}
+.ha-kelvin::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid var(--color-text-primary);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
+}

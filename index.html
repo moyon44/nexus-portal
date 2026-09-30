@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexus Portal</title>
+    <meta name="theme-color" content="#121212" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- use-credentials: the portal sits behind Cloudflare Access. -->
+    <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Orbitron:wght@600;800;900&family=Fredoka:wght@500;600;700&family=VT323&family=Space+Mono:wght@400;700&family=Geist:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Runs before paint so the page never flashes the wrong theme or accent.
+         The values are cached by theme/theme.ts each time the theme loads. -->
+    <script>
+      try {
+        var mode = localStorage.getItem("portail:theme-mode") || "dark";
+        // Keep in step with theme/skins.ts: forced mode per skin.
+        var skin = localStorage.getItem("portail:theme-skin") || "default";
+        var forced = { paper: "light", brutal: "light", win98: "light", clay: "light", terminal: "dark", blueprint: "dark", synthwave: "dark" }[skin];
+        if (skin !== "default") document.documentElement.setAttribute("data-skin", skin);
+        // A Studio style: its variables, attributes and mode (theme/theme.ts applyCustom).
+        if (skin === "custom") {
+          var custom = JSON.parse(localStorage.getItem("portail:theme-custom") || "{}");
+          forced = custom.mode;
+          for (var v in custom.vars || {}) if (/^--cs-[a-z0-9-]+$/.test(v)) document.documentElement.style.setProperty(v, custom.vars[v]);
+          for (var a in custom.attrs || {}) if (/^data-cs-[a-z]+$/.test(a)) document.documentElement.setAttribute(a, custom.attrs[a]);
+        }
+        var dark = forced ? forced === "dark" : mode === "dark" || (mode === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+        var vars = JSON.parse(localStorage.getItem("portail:theme-vars") || "{}");
+        for (var k in vars) {
+          if (/^--color-accent-[0-9]+$/.test(k) && typeof vars[k] === "string") {
+            document.documentElement.style.setProperty(k, vars[k]);
+          }
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
