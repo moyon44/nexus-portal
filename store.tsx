@@ -13,6 +13,8 @@ interface DashboardContextType {
   addService: (service: Service) => Promise<string>;
   updateService: (service: Service) => Promise<void>;
   deleteService: (id: string) => Promise<void>;
+  /** Brings deleted links back (undo, history). */
+  restoreServices: (ids: string[]) => Promise<void>;
   setServices: (services: Service[]) => Promise<void>;
   /** Moves/reorders services at once (tree drag): applied locally first. */
   reorderServices: (items: { id: string; categoryId: string; order: number }[]) => Promise<void>;
@@ -260,6 +262,14 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   };
 
+  const restoreServices = async (ids: string[]) => {
+    try {
+      for (const id of ids) await servicesApi.restore(id);
+    } finally {
+      await loadData();
+    }
+  };
+
   const setServices = async (services: Service[]) => {
     try {
       // Update all services in order
@@ -396,6 +406,7 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
     addService,
     updateService,
     deleteService,
+    restoreServices,
     setServices,
     reorderServices,
     reorderCategories,

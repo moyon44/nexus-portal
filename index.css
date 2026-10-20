@@ -1324,3 +1324,22 @@ html[data-lite] :is(.tile-ambient, .icon-ambient) {
   border: 2px solid var(--color-text-primary);
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
 }
+
+/* Hover card of external links (components/LinkPreviewCard.tsx) */
+.link-preview {
+  animation: link-preview-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.link-preview[data-side='bottom'] {
+  --lp-from: -4px;
+}
+@keyframes link-preview-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--lp-from, 4px)) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .link-preview {
+    animation: none;
+  }
+}

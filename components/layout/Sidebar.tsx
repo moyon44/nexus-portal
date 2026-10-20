@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { RiFolderOpenLine, RiHome5Line, RiCloseLine, RiPulseLine, RiSearchLine, RiSettings4Line, RiSparkling2Line } from '@remixicon/react';
 import { openWrapped } from '../Wrapped';
@@ -6,6 +8,7 @@ import { useShell } from '../../lib/shell';
 import { moveFolder, moveLink } from '../../lib/links';
 import { nextFolderColor } from '../../theme/folders';
 import { LinkTree } from '../LinkTree';
+import { ServiceMenu, type MenuAnchor } from '../ServiceMenu';
 import { CloudTree } from '../CloudTree';
 import { Kbd } from '../ui/badge';
 import { cx } from '../../utils/cx';
@@ -36,6 +39,7 @@ export function Sidebar({
   const { goToCategory, activeCategory, setHoveredLink, openQuickAdd } = useShell();
   const { pathname } = useLocation();
   const isHome = pathname === '/';
+  const [menu, setMenu] = useState<MenuAnchor | null>(null);
 
   return (
     <aside
@@ -93,6 +97,7 @@ export function Sidebar({
             goToCategory(id);
           }}
           onHoverLink={setHoveredLink}
+          onLinkMenu={(service, x, y) => setMenu({ service, x, y })}
           onAddLink={(folderId, url) => openQuickAdd({ folderId, url })}
           onMoveLink={(id, folderId, index) => {
             armFlip();
@@ -181,6 +186,8 @@ export function Sidebar({
         {!skinInfo(data.theme.skin).mode && <ThemeToggle collapsed />}
       </div>
       </div>
+      {/* Portalled: the faded sidebar would otherwise dim and trap the menu. */}
+      {menu && createPortal(<ServiceMenu anchor={menu} onClose={() => setMenu(null)} />, document.body)}
     </aside>
   );
 }

@@ -1,6 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
+  RiChat3Line,
   RiCheckboxMultipleLine,
+  RiDeleteBin6Line,
   RiExternalLinkLine,
   RiFileCopyLine,
   RiInformationLine,
@@ -39,17 +41,22 @@ type Item = {
 };
 
 /**
- * Right-click menu of a tile: the same actions as the command palette.
- * Keyboard: arrows move, Enter runs, Escape closes. Restarting a container
- * asks for a second press.
+ * Right-click menu of a tile (or a sidebar link): the same actions as the
+ * command palette, plus editing the link's comment (its description, shown
+ * on the back of the card) and deleting it (one click, undone from the
+ * Island or the history). Keyboard: arrows move, Enter runs, Escape closes.
+ * Restarting a container asks for a second press.
  */
 export function ServiceMenu({ anchor, onClose, onSelect }: { anchor: MenuAnchor | null; onClose: () => void; onSelect?: (id: string) => void }) {
-  const { data, toggleFavorite, logAccess } = useDashboard();
+  const { data, toggleFavorite, logAccess, updateService, deleteService, restoreServices } = useDashboard();
   const { notify, openDetails } = useShell();
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const [active, setActive] = useState(0);
   const [confirming, setConfirming] = useState<string | null>(null);
+  /** Comment being edited, or null while the action list shows. */
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const service = anchor?.service ?? null;
 
@@ -63,8 +70,17 @@ export function ServiceMenu({ anchor, onClose, onSelect }: { anchor: MenuAnchor 
     });
     setActive(0);
     setConfirming(null);
+    setDraft(null);
     ref.current.focus();
   }, [anchor]);
+
+  // The comment editor is taller than the list: keep it inside the window.
+  useLayoutEffect(() => {
+    if (!anchor || !ref.current || draft === null) return;
+    const { height } = ref.current.getBoundingClientRect();
+    const margin = 8;
+    setPos(p => (p && p.top + height + margin > window.innerHeight ? { ...p, top: Math.max(margin, window.innerHeight - height - margin) } : p));
+  }, [anchor, draft === null]);
 
   useEffect(() => {
     if (!anchor) return;
@@ -178,9 +194,56 @@ export function ServiceMenu({ anchor, onClose, onSelect }: { anchor: MenuAnchor 
       icon: RiInformationLine,
       run: () => openDetails(service),
     },
+    {
+      key: 'comment',
+      label: service.description ? 'Modifier le commentaire' : 'Ajouter un commentaire',
+      icon: RiChat3Line,
+      run: () => {},
+    },
+    {
+      key: 'delete',
+      label: 'Supprimer le lien',
+      icon: RiDeleteBin6Line,
+      danger: true,
+      // One click: the Island offers to undo, and the history keeps it.
+      run: async () => {
+        try {
+          await deleteService(service.id);
+          notify(`${service.name} supprimé`, 'ok', {
+            action: 'Annuler',
+            onClick: () =>
+              void restoreServices([service.id])
+                .then(() => notify(`${service.name} restauré`, 'ok'))
+                .catch(() => notify('Restauration impossible', 'err')),
+          });
+        } catch {
+          notify('Suppression impossible', 'err');
+        }
+      },
+    },
   ];
 
+  const saveComment = async () => {
+    if (draft === null || saving) return;
+    const description = draft.trim();
+    if (description === (service.description ?? '').trim()) return onClose();
+    setSaving(true);
+    try {
+      await updateService({ ...service, description });
+      notify(description ? 'Commentaire enregistré' : 'Commentaire retiré', 'ok');
+      onClose();
+    } catch {
+      notify("Impossible d'enregistrer le commentaire", 'err');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const trigger = (item: Item) => {
+    if (item.key === 'comment') {
+      setDraft(service.description ?? '');
+      return;
+    }
     if (item.confirm && confirming !== item.key) {
       setConfirming(item.key);
       return;
@@ -198,6 +261,7 @@ export function ServiceMenu({ anchor, onClose, onSelect }: { anchor: MenuAnchor 
         aria-label={`Actions pour ${service.name}`}
         onMouseDown={e => e.stopPropagation()}
         onKeyDown={e => {
+          if (draft !== null) return;
           if (e.key === 'Escape') {
             e.preventDefault();
             onClose();
@@ -216,7 +280,55 @@ export function ServiceMenu({ anchor, onClose, onSelect }: { anchor: MenuAnchor 
         className="animate-dialog-in absolute w-72 rounded-2xl border border-border-button-default bg-background-secondary-default p-1.5 shadow-dropdown outline-none"
       >
         <p className="truncate px-2.5 pt-1 pb-1.5 text-caption-1-medium text-text-tertiary">{service.name}</p>
-        {items.map((item, i) => {
+        {draft !== null ? (
+          <div className="flex flex-col gap-2 px-1 pb-1">
+            <textarea
+              autoFocus
+              rows={4}
+              maxLength={500}
+              value={draft}
+              placeholder="Identifiants par défaut, port, à quoi sert ce lien…"
+              onChange={e => setDraft(e.target.value)}
+              onFocus={e => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
+              onKeyDown={e => {
+                e.stopPropagation();
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setDraft(null);
+                  ref.current?.focus();
+                } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  void saveComment();
+                }
+              }}
+              className="w-full resize-none rounded-lg border border-border-button-default bg-background-primary-default px-2.5 py-2 text-body-regular text-text-primary outline-none placeholder:text-text-tertiary focus:ring-2 focus:ring-border-focus-ring"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-caption-1-regular text-text-tertiary">Ctrl + Entrée</span>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft(null);
+                    ref.current?.focus();
+                  }}
+                  className="cursor-pointer rounded-lg px-2.5 py-1 text-body-regular text-text-secondary hover:bg-dropdown-item-hover-background"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void saveComment()}
+                  className="cursor-pointer rounded-lg bg-dropdown-item-hover-background px-2.5 py-1 text-body-medium text-text-primary disabled:opacity-50"
+                >
+                  {saving ? 'Enregistrement…' : 'Enregistrer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+        items.map((item, i) => {
           const Icon = item.icon;
           const isConfirming = confirming === item.key;
           return (
@@ -239,7 +351,8 @@ export function ServiceMenu({ anchor, onClose, onSelect }: { anchor: MenuAnchor 
               )}
             </button>
           );
-        })}
+        })
+        )}
       </div>
     </div>
   );

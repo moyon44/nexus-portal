@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Service } from '../types';
 import { dashboardIconUrl, useIconIndex } from './icons';
+import { isGithubAvatar } from './github';
 
 /**
  * A tile's brand colour, read from its logo: the image is drawn small on a
@@ -116,6 +117,7 @@ export function brandColorOf(src: string): Promise<string | null> {
 /** The logo URL a tile shows (official logo first), for sampling and the ambient glow. */
 export function useLogoSrc(service: Pick<Service, 'name' | 'icon' | 'customImage'>): string | null {
   const idx = useIconIndex();
+  if (isGithubAvatar(service.customImage)) return service.customImage!;
   return dashboardIconUrl({ name: service.name, icon: service.icon }, idx) ?? service.customImage ?? null;
 }
 

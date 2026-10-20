@@ -7,6 +7,7 @@ import { folderColor, nextFolderColor } from '../theme/folders';
 import { Button } from './ui/button';
 import { Kbd } from './ui/badge';
 import { cx } from '../utils/cx';
+import { GITHUB_FOLDER } from '../lib/github';
 
 /**
  * Quick add: paste an address, press Enter. The name, description and icon
@@ -42,6 +43,8 @@ export function QuickAddLink({
   const [name, setName] = useState('');
   const [nameEdited, setNameEdited] = useState(false);
   const [folderId, setFolderId] = useState<string>('');
+  /** The folder was picked by hand (or given by the caller): leave it alone. */
+  const [folderChosen, setFolderChosen] = useState(false);
   const [newFolder, setNewFolder] = useState<string | null>(null);
   const [preview, setPreview] = useState<LinkPreview | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,6 +61,7 @@ export function QuickAddLink({
     setPreview(null);
     setError(null);
     setNewFolder(null);
+    setFolderChosen(!!initialFolderId);
     setFolderId(initialFolderId && folders.some(f => f.id === initialFolderId) ? initialFolderId : folders[0]?.id ?? '');
     requestAnimationFrame(() => {
       urlRef.current?.focus();
@@ -82,6 +86,14 @@ export function QuickAddLink({
         setPreview(p);
         setIconFailed(false);
         if (!nameEdited) setName(p.title);
+        // GitHub repositories gather in their own folder (created on save).
+        if (p.github && !folderChosen) {
+          const gh = folders.find(f => f.name.trim().toLowerCase() === GITHUB_FOLDER.toLowerCase());
+          if (gh) {
+            setFolderId(gh.id);
+            setNewFolder(null);
+          } else setNewFolder(GITHUB_FOLDER);
+        }
       } catch {
         if (!controller.signal.aborted) setPreview(null);
       } finally {
@@ -234,6 +246,7 @@ export function QuickAddLink({
                     onClick={() => {
                       setFolderId(f.id);
                       setNewFolder(null);
+                      setFolderChosen(true);
                     }}
                     className={cx(
                       'flex h-8 cursor-pointer items-center gap-2 rounded-full border px-3 text-body-medium outline-none transition-colors',
@@ -251,7 +264,10 @@ export function QuickAddLink({
               {newFolder === null ? (
                 <button
                   type="button"
-                  onClick={() => setNewFolder('')}
+                  onClick={() => {
+                    setNewFolder('');
+                    setFolderChosen(true);
+                  }}
                   className="flex h-8 cursor-pointer items-center gap-1 rounded-full border border-dashed border-border-button-hover px-3 text-body-regular text-text-tertiary outline-none hover:text-text-primary focus-visible:ring-2 focus-visible:ring-border-focus-ring"
                 >
                   <RiAddLine className="size-4" aria-hidden /> Nouveau

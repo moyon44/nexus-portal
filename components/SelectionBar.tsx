@@ -11,11 +11,11 @@ import { folderTint } from '../theme/folders';
 
 /**
  * Floating action bar for a multi-selection (bencho.dev "Selection list"):
- * move to a category, favourite, restart the containers, delete. Restart and
- * delete ask for a second click.
+ * move to a category, favourite, restart the containers, delete. Restart
+ * asks for a second click; delete is undone from the Island.
  */
 export function SelectionBar({ ids, onClear, onSelectAll }: { ids: string[]; onClear: () => void; onSelectAll: () => void }) {
-  const { data, reorderServices, toggleFavorite, deleteService } = useDashboard();
+  const { data, reorderServices, toggleFavorite, deleteService, restoreServices } = useDashboard();
   const { notify } = useShell();
   const [confirm, setConfirm] = useState<'restart' | 'delete' | null>(null);
   const [busy, setBusy] = useState(false);
@@ -59,12 +59,26 @@ export function SelectionBar({ ids, onClear, onSelectAll }: { ids: string[]; onC
     });
   };
 
-  const remove = () => {
-    if (confirm !== 'delete') return setConfirm('delete');
-    run(`${n} lien${plural} supprimé${plural}`, async () => {
-      for (const id of ids) await deleteService(id);
+  // One click: the Island offers to undo (all of them at once).
+  const remove = async () => {
+    const gone = [...ids];
+    setBusy(true);
+    try {
+      for (const id of gone) await deleteService(id);
       onClear();
-    });
+      notify(`${n} lien${plural} supprimé${plural}`, 'ok', {
+        action: 'Annuler',
+        onClick: () =>
+          void restoreServices(gone)
+            .then(() => notify(`${gone.length} lien${gone.length > 1 ? 's' : ''} restauré${gone.length > 1 ? 's' : ''}`, 'ok'))
+            .catch(() => notify('Restauration impossible', 'err')),
+      });
+    } catch {
+      notify('Action impossible sur une partie de la sélection', 'err');
+    } finally {
+      setBusy(false);
+      setConfirm(null);
+    }
   };
 
   const btn =
@@ -109,9 +123,9 @@ export function SelectionBar({ ids, onClear, onSelectAll }: { ids: string[]; onC
             {confirm === 'restart' ? `Confirmer (${containers.length})` : 'Redémarrer'}
           </button>
         )}
-        <button type="button" className={cx(btn, 'shrink-0', confirm === 'delete' && 'bg-rose-500/25 text-rose-200')} onClick={remove} disabled={busy}>
+        <button type="button" className={cx(btn, 'shrink-0')} onClick={() => void remove()} disabled={busy}>
           <RiDeleteBinLine className="size-4" aria-hidden />
-          {confirm === 'delete' ? 'Confirmer la suppression' : 'Supprimer'}
+          Supprimer
         </button>
         <span className="h-5 w-px shrink-0 bg-white/15" aria-hidden />
         <button type="button" className={cx(btn, 'shrink-0')} onClick={onSelectAll} title="Tout sélectionner">

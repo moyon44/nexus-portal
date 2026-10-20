@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { RiArrowGoBackLine, RiExternalLinkLine, RiFileCopyLine, RiLoopLeftLine, RiStarFill, RiStarLine } from '@remixicon/react';
+import { RiArrowGoBackLine, RiExternalLinkLine, RiFileCopyLine, RiGithubFill, RiLoopLeftLine, RiStarFill, RiStarLine } from '@remixicon/react';
 import type { Service, ServiceHealth, ThemeConfig, Widget } from '../types';
 import { LinkIcon } from './LinkIcon';
 import { Kbd } from './ui/badge';
@@ -12,6 +12,8 @@ import { cx } from '../utils/cx';
 import { burst } from '../lib/motion';
 import { useDashboard } from '../store';
 import { WobbleText, type WobbleHandle } from './WobbleText';
+import { SLOW_MS, githubRepo } from '../lib/github';
+import { useDeadLink } from '../lib/deadLinks';
 
 /**
  * Home page tile, pared down: the app's logo and its name. Where it lives,
@@ -23,9 +25,6 @@ import { WobbleText, type WobbleHandle } from './WobbleText';
  */
 
 const BARS = 30;
-
-const pct = (v: number | null | undefined) =>
-  v === null || v === undefined ? null : `${v.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %`;
 
 function UptimeStrip({ health }: { health?: ServiceHealth }) {
   const samples = health?.history.slice(-BARS) ?? [];
@@ -169,6 +168,11 @@ export const ServiceTile: React.FC<ServiceTileProps> = ({
   const status = service.status;
   const offline = status === 'offline';
   const latency = health?.latency ?? null;
+  // Only a slow answer is worth a word on the card; the exact figure stays in
+  // the details panel.
+  const slow = latency !== null && latency >= SLOW_MS;
+  const repo = githubRepo(service.url);
+  const dead = useDeadLink(service.id);
   const fullHost = hostOf(service.url);
   const host =
     baseDomain && fullHost.endsWith(`.${baseDomain}`) ? fullHost.slice(0, -baseDomain.length - 1) : fullHost;
@@ -199,25 +203,25 @@ export const ServiceTile: React.FC<ServiceTileProps> = ({
   }, [flipped]);
   const closeBack = React.useCallback(() => setFlipped(null), []);
 
-  const tooltip = [
-    `${service.name} · ${fullHost}`,
-    showDescription && service.description ? service.description : null,
-    ...(live ? live.items : []),
-    health && (pct(health.uptime24h) || pct(health.uptime7d))
-      ? `Disponibilité : ${pct(health.uptime24h) ?? '–'} (24 h) · ${pct(health.uptime7d) ?? '–'} (7 j)`
-      : null,
-    container ? `Conteneur ${container.name} · CPU ${container.cpu} % · RAM ${container.ram} %` : null,
-  ]
-    .filter(Boolean)
-    .join('\n');
-
   const meta = (
     <>
-      <span className="min-w-0 truncate">{host}</span>
-      {latency !== null && (
+      {repo ? (
+        <>
+          <RiGithubFill className="size-3 shrink-0" aria-hidden />
+          <span className="min-w-0 truncate">{repo.owner}</span>
+        </>
+      ) : (
+        <span className="min-w-0 truncate">{host}</span>
+      )}
+      {dead ? (
         <>
           <span aria-hidden>·</span>
-          <span className="shrink-0">{latency}&nbsp;ms</span>
+          <span className="shrink-0 text-status-yellow-text" title={dead}>lien mort</span>
+        </>
+      ) : slow && (
+        <>
+          <span aria-hidden>·</span>
+          <span className="shrink-0 text-status-yellow-text">lent</span>
         </>
       )}
     </>
@@ -253,7 +257,7 @@ export const ServiceTile: React.FC<ServiceTileProps> = ({
         target={service.openInNewTab ? '_blank' : undefined}
         rel="noopener noreferrer"
         draggable={false}
-        title={tooltip}
+        // No browser tooltip: the hover card (components/LinkPreviewCard.tsx) tells more.
         aria-label={`${service.name}${offline ? ', hors ligne' : ''}`}
         onClick={onOpen}
         onAuxClick={e => e.button === 1 && onOpen()}
@@ -324,6 +328,9 @@ export const ServiceTile: React.FC<ServiceTileProps> = ({
               {meta}
             </span>
           </span>
+        ) : repo || slow || dead ? (
+          // The owner tells repositories apart; a slow service says so.
+          <span className="tile-meta flex min-w-0 items-center gap-1.5">{meta}</span>
         ) : (
           <span className="tile-meta flex max-h-0 min-w-0 items-center gap-1.5 overflow-hidden opacity-0 transition-[max-height,opacity] duration-200 group-hover:max-h-4 group-hover:opacity-100 group-focus-within:max-h-4 group-focus-within:opacity-100">
             {meta}

@@ -19,6 +19,7 @@ import { IntegrationsEditor } from '../components/admin/IntegrationsEditor';
 import { NIGHT_FOCUS_KEY, nightFocusEnabled } from '../lib/shell';
 import { ServiceCard } from '../components/ServiceCard';
 import { DockerConfigSection } from '../components/admin/DockerConfigSection';
+import { LinkCheckPanel } from '../components/admin/LinkCheckPanel';
 import { PageHeader, Panel, SectionLabel, EmptyState } from '../components/ui/panel';
 import { Button } from '../components/ui/button';
 import { Input, Select, Switch, Field } from '../components/ui/form';
@@ -618,6 +619,8 @@ export const Admin: React.FC = () => {
     switch (activeTab) {
       case 'services':
         return (
+          <div className="flex flex-col gap-6">
+          <LinkCheckPanel />
           <Panel
             title="Services"
             subtitle={`${data.services.length} service${data.services.length > 1 ? 's' : ''} · l'ordre est celui de l'accueil`}
@@ -689,6 +692,7 @@ export const Admin: React.FC = () => {
               </div>
             )}
           </Panel>
+          </div>
         );
       case 'categories':
         return (

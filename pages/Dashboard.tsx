@@ -5,8 +5,10 @@ import { useDashboard } from '../store';
 import { ServiceTile } from '../components/ServiceTile';
 import { BentoCard, ServiceIcon, ServiceRow, TextLink, isBentoHero } from '../components/views';
 import { ServiceMenu, type MenuAnchor } from '../components/ServiceMenu';
+import { LinkPreviewLayer } from '../components/LinkPreviewCard';
 import { StatusBar } from '../components/StatusBar';
 import { HomeWidgets } from '../components/ha/HomeWidgets';
+import { githubRepo } from '../lib/github';
 import { Dock } from '../components/Dock';
 import { SelectionBar } from '../components/SelectionBar';
 import { Button } from '../components/ui/button';
@@ -327,6 +329,7 @@ export const Dashboard: React.FC = () => {
       }}
     >
       <ServiceMenu anchor={menu} onClose={() => setMenu(null)} onSelect={toggleSelected} />
+      <LinkPreviewLayer services={data.services} baseDomain={baseDomain} health={data.health} widgets={data.widgets} />
       {selected.size > 0 && (
         <SelectionBar
           ids={[...selected]}
@@ -347,8 +350,6 @@ export const Dashboard: React.FC = () => {
         <StatusBar />
 
         {!issuesOnly && <Dock />}
-
-        {!issuesOnly && !focus && <HomeWidgets />}
 
         {focus && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-button-default bg-background-secondary-default/40 px-4 py-2.5 text-body-2-regular text-text-tertiary">
@@ -382,6 +383,9 @@ export const Dashboard: React.FC = () => {
           const offline = section.links.filter(l => l.status === 'offline').length;
           const isDropTarget = sectionDrop === section.id;
           const folderId = section.category?.id;
+          // A folder of GitHub repositories reads as a compact list of repos.
+          const repos = section.links.length > 0 && section.links.every(l => githubRepo(l.url));
+          const tileDensity = repos ? 'compact' : density;
           return (
             <section
               key={section.id}
@@ -456,7 +460,7 @@ export const Dashboard: React.FC = () => {
                     view !== 'list' && 'rounded-2xl',
                     isDropTarget && !cardDrop && 'ring-2 ring-accent-400/40 ring-offset-4 ring-offset-background-full',
                   )}
-                  style={{ '--tile-min': TILE_MIN[density] } as React.CSSProperties}
+                  style={{ '--tile-min': TILE_MIN[tileDensity] } as React.CSSProperties}
                 >
                   {section.visibleLinks.map(service => {
                     const drop = cardDrop?.id === service.id ? cardDrop : null;
@@ -561,7 +565,7 @@ export const Dashboard: React.FC = () => {
                                 <ServiceTile {...props} density="compact" showDescription={data.theme.showDescriptions} />
                               );
                             default:
-                              return <ServiceTile {...props} density={density} showDescription={data.theme.showDescriptions} />;
+                              return <ServiceTile {...props} density={tileDensity} showDescription={data.theme.showDescriptions} />;
                           }
                         })()}
                       </div>
@@ -583,6 +587,9 @@ export const Dashboard: React.FC = () => {
             <p className="text-body-2-regular text-text-tertiary">ou collez une adresse n'importe où sur la page</p>
           </div>
         )}
+
+        {/* Below the links: the widgets used to push them off the first screen. */}
+        {!issuesOnly && !focus && <HomeWidgets />}
       </div>
     </div>
   );

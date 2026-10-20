@@ -1,5 +1,6 @@
 import Docker from 'dockerode';
 import os from 'os';
+import { audit } from './audit.js';
 
 /**
  * Container updates and cleanup (what Watchtower and `docker system prune`
@@ -261,6 +262,7 @@ async function recreate(name: string, job: UpdateJob, networkMode?: string): Pro
 
 async function runUpdate(name: string) {
   const job = jobs.get(name)!;
+  let updated = false;
   try {
     const info = await docker.getContainer(name).inspect();
     if (info.Config.Labels?.['com.docker.compose.project'] === SELF_PROJECT) throw new Error('Le portail ne peut pas se mettre à jour lui-même');
@@ -273,16 +275,19 @@ async function runUpdate(name: string) {
     if (fresh.Id === info.Image) {
       job.step = 'Déjà à jour';
     } else {
+      updated = true;
       await recreate(name, job);
       await settle(name, job);
       job.step = 'Mis à jour';
     }
     job.status = 'done';
+    if (updated) void audit({ action: 'UPDATE_IMAGE', entityType: 'DOCKER_CONTAINER', entityId: name, newValues: { ok: true } });
     const r = results.get(name);
     if (r) results.set(name, { ...r, state: 'current', error: undefined });
   } catch (e: any) {
     job.status = 'failed';
     job.error = String(e?.json?.message ?? e?.message ?? e).slice(0, 240);
+    void audit({ action: 'UPDATE_IMAGE', entityType: 'DOCKER_CONTAINER', entityId: name, newValues: { ok: false, error: job.error } });
   } finally {
     job.endedAt = Date.now();
   }

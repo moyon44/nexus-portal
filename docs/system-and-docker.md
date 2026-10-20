@@ -13,10 +13,21 @@ container figures, auto-discovery and updates rely on.
   start / stop / restart (stop and restart ask for a second click).
 - **Home Assistant**: the button at the top opens the
   [sensors page](home-assistant.md#sensors-page).
+- **Historique**: what was done from the portal (below).
 
 Link a tile to its container (*Administration → Services*, or found
 automatically) and the tile shows its CPU / RAM, logs (*Détails et
 journaux*) and a restart action.
+
+## History
+
+The *Historique* panel lists, day by day, what was done from the portal:
+links and folders added, renamed, moved, commented or deleted; containers
+restarted, stopped, started or updated (failures in red); Docker cleanups and
+the space they freed; Home Assistant commands; Nextcloud actions; Jellyseerr
+requests. Filter it by *Liens*, *Serveur*, *Maison* or *Médias*. A deleted
+link has a *Restaurer* button that brings it back as it was. Theme tweaks,
+favourites and reordering are left out.
 
 ## Health checks
 

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import db from '../db.js';
 import { NC_ACTIONS, lastAction, runAction, type NcAction } from '../services/nextcloud.js';
+import { audit } from '../services/audit.js';
 
 /**
  * Live tile widgets, Homepage style: a short line of real data on the tile of
@@ -522,6 +523,13 @@ router.post('/jellyseerr/request', async (req: Request, res: Response) => {
       return;
     }
     const request: any = await r.json();
+    void audit({
+      action: 'REQUEST',
+      entityType: 'JELLYSEERR',
+      entityId: `${mediaType}:${mediaId}`,
+      newValues: { title: media.title ?? media.name ?? `#${mediaId}`, mediaType },
+      req,
+    });
     refreshOne(cfg).catch(() => undefined);
     res.json({ ok: true, status: request.status });
   } catch (e: any) {
@@ -1001,6 +1009,7 @@ router.post('/nextcloud/action', async (req: Request, res: Response) => {
   if (!cfg) return;
   try {
     const state = runAction(action);
+    void audit({ action: 'NC_ACTION', entityType: 'NEXTCLOUD', entityId: action, newValues: { label: NC_ACTIONS[action].label }, req });
     // Refresh the tile when it ends (and right away: "⏳ …").
     refreshOne(cfg).catch(() => undefined);
     const watch = setInterval(() => {

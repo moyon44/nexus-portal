@@ -253,4 +253,67 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/services/:id/restore
+ * Brings a deleted link back exactly as it was, from the row its DELETE
+ * audit line kept (same id, so its access history comes back with it).
+ * Its folder may be gone too: it then lands in the first folder.
+ */
+router.post('/:id/restore', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (await db('services').where('id', id).first()) {
+      res.status(409).json({ error: 'Ce lien existe déjà' });
+      return;
+    }
+    const log = await db('audit_logs').where({ entity_type: 'SERVICE', action: 'DELETE', entity_id: id }).orderBy('created_at', 'desc').first();
+    const old = typeof log?.old_values === 'string' ? JSON.parse(log.old_values) : log?.old_values;
+    if (!old?.url) {
+      res.status(404).json({ error: 'Rien à restaurer' });
+      return;
+    }
+    let categoryId = old.category_id;
+    if (!(await db('categories').where('id', categoryId).first())) {
+      categoryId = (await db('categories').orderBy('order').first())?.id;
+      if (!categoryId) {
+        res.status(409).json({ error: 'Aucun dossier pour accueillir ce lien' });
+        return;
+      }
+    }
+    const row = {
+      id,
+      name: old.name,
+      description: old.description ?? '',
+      url: old.url,
+      category_id: categoryId,
+      tags: typeof old.tags === 'string' ? old.tags : JSON.stringify(old.tags ?? []),
+      icon: old.icon ?? 'lucide:link',
+      custom_image: old.custom_image ?? null,
+      is_favorite: !!old.is_favorite,
+      status: 'unknown',
+      open_in_new_tab: old.open_in_new_tab ?? true,
+      is_visible: old.is_visible ?? true,
+      order: old.order ?? 0,
+      stats: JSON.stringify(old.stats ?? {}),
+      created_at: old.created_at ?? new Date(),
+      updated_at: new Date(),
+    };
+    await db('services').insert(row);
+    await db('audit_logs').insert({
+      id: uuidv4(),
+      action: 'RESTORE',
+      entity_type: 'SERVICE',
+      entity_id: id,
+      old_values: {},
+      new_values: { name: row.name, category_id: categoryId },
+      ip_address: req.ip,
+      user_agent: req.get('user-agent'),
+    });
+    res.json({ success: true, id, categoryId });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Restauration impossible' });
+  }
+});
+
 export default router;

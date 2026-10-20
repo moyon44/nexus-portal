@@ -8,6 +8,7 @@ import { hostOf } from '../lib/actions';
 import { useBrandColor, useLogoSrc } from '../lib/brandColor';
 import { cx } from '../utils/cx';
 import { burst } from '../lib/motion';
+import { SLOW_MS, githubRepo } from '../lib/github';
 
 /**
  * The home page's other display styles (the card is components/ServiceTile).
@@ -37,6 +38,15 @@ export interface ViewItemProps {
 
 const pct = (v: number | null | undefined) =>
   v === null || v === undefined ? null : `${v.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %`;
+
+/** Where a link points: the owner for a GitHub repository, else the host. */
+function place(url: string, base?: string | null) {
+  const repo = githubRepo(url);
+  return repo ? `GitHub · ${repo.owner}` : shortHost(url, base);
+}
+
+/** "lent" for a slow answer, nothing otherwise (the figure is in the details panel). */
+const slowLabel = (health?: ServiceHealth | null) => (health?.latency != null && health.latency >= SLOW_MS ? 'lent' : '');
 
 function shortHost(url: string, base?: string | null) {
   const h = hostOf(url);
@@ -160,13 +170,13 @@ export function ServiceRow(p: ViewItemProps) {
         {service.description && <span className="truncate text-body-2-regular text-text-tertiary">{service.description}</span>}
       </span>
       <span className="pointer-events-none hidden min-w-0 truncate text-body-2-regular text-text-tertiary md:block">
-        {shortHost(service.url, baseDomain)}
+        {place(service.url, baseDomain)}
       </span>
       <span className="pointer-events-none hidden min-w-0 truncate text-body-2-regular text-text-secondary lg:block">
         {live ?? ''}
       </span>
-      <span className="pointer-events-none hidden text-right text-body-2-regular text-text-tertiary tabular-nums sm:block">
-        {offline ? '' : health?.latency != null ? `${health.latency} ms` : '–'}
+      <span className="pointer-events-none hidden text-right text-body-2-regular text-status-yellow-text sm:block">
+        {offline ? '' : slowLabel(health)}
       </span>
       <span className="pointer-events-none hidden xl:block" title={pct(health?.uptime24h) ? `24 h : ${pct(health?.uptime24h)}` : undefined}>
         <Bars health={health} count={24} />
@@ -271,11 +281,11 @@ export function BentoCard(p: ViewItemProps) {
           {offline ? (
             <span className="rounded-md bg-status-rose-background px-1.5 text-caption-1-medium text-status-rose-text">Hors ligne</span>
           ) : null}
-          <span className="truncate">{shortHost(service.url, baseDomain)}</span>
-          {!offline && health?.latency != null && (
+          <span className="truncate">{place(service.url, baseDomain)}</span>
+          {!offline && slowLabel(health) && (
             <>
               <span aria-hidden>·</span>
-              <span className="shrink-0">{health.latency} ms</span>
+              <span className="shrink-0 text-status-yellow-text">{slowLabel(health)}</span>
             </>
           )}
         </span>

@@ -16,12 +16,14 @@ import { LinkIcon } from '../components/LinkIcon';
 import { Roll } from '../components/ui/roll';
 import { cx } from '../utils/cx';
 import { Maintenance } from '../components/Maintenance';
+import { ActivityTimeline } from '../components/ActivityTimeline';
 
 /**
  * System page: the host (CPU / RAM over an hour, disk), maintenance (image
  * updates, cleanup: components/Maintenance.tsx) and every container with
  * its own CPU / RAM trend, the heaviest first, with start / stop / restart.
- * Stop and restart ask for a second click. Home Assistant's sensors have
+ * Stop and restart ask for a second click. Then the action history
+ * (components/ActivityTimeline.tsx). Home Assistant's sensors have
  * their own page (pages/HomeAssistant.tsx).
  */
 
@@ -269,6 +271,8 @@ export const System: React.FC = () => {
           </table>
         </div>
       </Panel>
+
+      <ActivityTimeline />
     </div>
   );
 };

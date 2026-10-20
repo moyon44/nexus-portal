@@ -20,9 +20,13 @@ export interface IslandEvent {
   tone: IslandTone;
   service?: Service;
   onClick?: () => void;
+  /** Label of what a click does ("Annuler"): shown as a pill, and the message stays longer. */
+  action?: string;
 }
 
 const DURATION: Record<IslandTone, number> = { ok: 3200, info: 4500, err: 6000 };
+/** Time left to click an action such as "Annuler". */
+const ACTION_DURATION = 7000;
 const IDLE = 40; // px: the pill it grows from and shrinks back to
 
 export function Island({ queue, onDone }: { queue: IslandEvent[]; onDone: (id: number) => void }) {
@@ -37,8 +41,9 @@ export function Island({ queue, onDone }: { queue: IslandEvent[]; onDone: (id: n
     if (!current) return;
     setShown(current);
     setPhase('open');
-    const hold = window.setTimeout(() => setPhase('closing'), DURATION[current.tone]);
-    const done = window.setTimeout(() => onDone(current.id), DURATION[current.tone] + 420);
+    const duration = current.action ? ACTION_DURATION : DURATION[current.tone];
+    const hold = window.setTimeout(() => setPhase('closing'), duration);
+    const done = window.setTimeout(() => onDone(current.id), duration + 420);
     return () => {
       window.clearTimeout(hold);
       window.clearTimeout(done);
@@ -101,6 +106,9 @@ export function Island({ queue, onDone }: { queue: IslandEvent[]; onDone: (id: n
             )}
           </span>
           <span className={cx('text-body-2-medium', shown.tone === 'err' && 'text-rose-200')}>{shown.message}</span>
+          {shown.action && (
+            <span className="ml-1 rounded-full bg-white/15 px-2.5 py-0.5 text-caption-1-medium text-white">{shown.action}</span>
+          )}
           {shown.tone === 'info' && (
             <span aria-hidden className="island-eq ml-1 flex h-3 items-end gap-[2px]">
               <span />

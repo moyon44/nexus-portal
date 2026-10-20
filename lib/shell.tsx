@@ -13,7 +13,7 @@ export interface ShellApi {
   quickAddOpen: boolean;
   openDetails: (service: Service) => void;
   /** Shows a message in the Dynamic Island (queued). */
-  notify: (message: string, tone?: 'ok' | 'err' | 'info', extra?: { service?: Service; onClick?: () => void }) => void;
+  notify: (message: string, tone?: 'ok' | 'err' | 'info', extra?: { service?: Service; onClick?: () => void; action?: string }) => void;
   /** Scrolls the home page to a category section (navigating home first). */
   goToCategory: (id: string) => void;
   /** Category whose section is currently at the top of the home page. */

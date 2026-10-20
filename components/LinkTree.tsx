@@ -37,6 +37,7 @@ export function LinkTree({
   onMoveLink,
   onMoveFolder,
   onCreateFolder,
+  onLinkMenu,
 }: {
   categories: Category[];
   services: Service[];
@@ -49,6 +50,8 @@ export function LinkTree({
   onMoveLink: (id: string, folderId: string, index: number) => void;
   onMoveFolder: (id: string, index: number) => void;
   onCreateFolder: (name: string) => Promise<void>;
+  /** Right-click on a link: opens the tile menu at the pointer. */
+  onLinkMenu?: (service: Service, x: number, y: number) => void;
 }) {
   const folders = [...categories].sort(byOrder);
   const total = services.filter(s => s.isVisible).length;
@@ -269,7 +272,12 @@ export function LinkTree({
                             target={link.openInNewTab ? '_blank' : undefined}
                             rel="noopener noreferrer"
                             draggable
-                            title={link.url}
+                            title={link.description ? `${link.url}\n${link.description}` : link.url}
+                            onContextMenu={e => {
+                              if (!onLinkMenu) return;
+                              e.preventDefault();
+                              onLinkMenu(link, e.clientX, e.clientY);
+                            }}
                             onMouseEnter={() => {
                               setActive(i);
                               onHoverLink(link);

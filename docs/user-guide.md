@@ -12,9 +12,9 @@ From top to bottom:
 - **Favourites dock** — your starred links, like a macOS dock
   (<kbd>1</kbd>…<kbd>9</kbd> open them).
 - **Récents** — the last links you opened.
-- **Maison** — your [Home Assistant widgets](home-assistant.md#widgets), if you
-  put any on the home page.
 - **Your folders**, one section each, with their links as tiles.
+- **Maison** — your [Home Assistant widgets](home-assistant.md#widgets), if you
+  put any on the home page (below the links, so they stay on the first screen).
 
 The **sidebar** lists the same folders as a tree: click one to jump to it,
 hover a link to light up its tile. Under it, *Stockage* shows your
@@ -25,21 +25,33 @@ opens with the ☰ button.
 ### Tiles
 
 A tile shows the service's logo (taken from its site, or chosen), name and
-status dot: green online, red down (checked every 30 s). Hover it for its
-address, description, uptime strip and, if it runs in a container, its CPU and
-RAM. Integrations add a live line (download speed, what's playing…).
+status dot: green online, red down (checked every 30 s). Integrations add a
+live line (download speed, what's playing…). Response times stay off the
+card; a service slower than 1 s says « lent ».
+
+**Hover** a tile for a moment and a card opens:
+
+- **external sites** (not on your network or your domain): the site's share
+  image and description, handy to remember what « Refero » or « Bencho » is;
+- **your services**: their live lines, response time, availability over
+  24 h / 7 days, the container's CPU / RAM and the last action on them from
+  the [history](system-and-docker.md#history).
 
 - **Click** opens the link (<kbd>Ctrl</kbd>+click: new tab).
-- **Right-click** (or the keyboard's menu key): *Ouvrir dans un nouvel onglet*, copy the
-  address, *Ouvrir en SSH*, *Redémarrer le conteneur*, *Sélectionner*,
-  *Retourner la carte*, *Détails et journaux*.
+- **Right-click** (or the keyboard's menu key) — on a tile or a link of the
+  sidebar: *Ouvrir dans un nouvel onglet*, copy the address, *Ouvrir en SSH*,
+  *Redémarrer le conteneur*, *Sélectionner*, *Retourner la carte*, *Détails
+  et journaux*, *Ajouter / Modifier le commentaire* (a note shown on the back
+  of the card) and *Supprimer le lien*. Deleting takes one click: the island
+  at the top offers *Annuler* for a few seconds, and the history can bring the
+  link back later.
 - **Flip** (<kbd>F</kbd> on the selected tile, or *Retourner la carte*): the
   back shows a **QR code** to open the link on a phone, the full address and
   its notes.
 - **Drag** a tile onto another folder in the sidebar or the page to move it.
 - **Select several** with <kbd>Shift</kbd>+click: a bar appears to move them,
-  star them, restart their containers or delete them (restart and delete ask
-  for a second click).
+  star them, restart their containers or delete them (restart asks for a
+  second click; delete can be undone).
 
 A « MAJ » pill on a tile means a newer image exists for its container; click
 it twice to update (see [System and Docker](system-and-docker.md#image-updates)).
@@ -54,6 +66,14 @@ it twice to update (see [System and Docker](system-and-docker.md#image-updates))
   with their name, `http://<server>:<port>` and their container.
 - Folders: *Nouveau dossier* at the bottom of the sidebar; drag folders to
   reorder them.
+- **GitHub repositories** (`github.com/<owner>/<repo>`) are named after the
+  repository, show the owner and their avatar, and go to a *GitHub* folder
+  (created if needed). A folder holding only repositories shows compact tiles.
+- **Checking links**: *Administration → Services → Vérifier les liens* (also
+  run daily) visits every external link, fills a missing or broken icon, an
+  empty description and a name that is only the address or a long page title,
+  and flags dead links (page gone, site not answering) with « lien mort » on
+  their tile. Small icons are stored in the database so they always show.
 
 ### Display styles
 

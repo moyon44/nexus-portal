@@ -3,9 +3,12 @@ import type { Service } from '../types';
 import { IconRenderer } from './IconRenderer';
 import { dashboardIconUrl, useIconIndex } from '../lib/icons';
 import { cx } from '../utils/cx';
+import { isGithubAvatar } from '../lib/github';
 
 /**
  * A link's icon, best source first:
+ *  0. a GitHub owner's avatar (repository links: a repo named "jellyfin"
+ *     must not get the Jellyfin logo),
  *  1. the app's official logo from dashboard-icons (by `di:<slug>` or name),
  *  2. the site's own icon when one was saved (custom image, usually the
  *     favicon found by the quick-add), on a light chip so dark favicons stay
@@ -24,7 +27,8 @@ export function LinkIcon({
 }) {
   const idx = useIconIndex();
   const [failed, setFailed] = useState<Set<string>>(() => new Set());
-  const logo = service.name ? dashboardIconUrl({ name: service.name, icon: service.icon }, idx) : null;
+  const avatar = isGithubAvatar(service.customImage) ? service.customImage! : null;
+  const logo = avatar && !failed.has(avatar) ? null : service.name ? dashboardIconUrl({ name: service.name, icon: service.icon }, idx) : null;
   const fail = (src: string) => setFailed(prev => new Set(prev).add(src));
 
   if (logo && !failed.has(logo)) {
@@ -44,6 +48,20 @@ export function LinkIcon({
   }
 
   const img = service.customImage && !failed.has(service.customImage) ? service.customImage : null;
+  if (img && img === avatar) {
+    return (
+      <img
+        src={img}
+        alt=""
+        width={size}
+        height={size}
+        loading="lazy"
+        onError={() => fail(img)}
+        className={cx('shrink-0 rounded-[6px] object-cover', className)}
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   if (img) {
     return (
       <img

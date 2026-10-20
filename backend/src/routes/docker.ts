@@ -7,6 +7,7 @@ import { syncDiscovered } from '../services/discovery.js';
 import { getOverview } from '../services/containers.js';
 import { getTopology } from '../services/topology.js';
 import { checkUpdates, getUpdates, prune, prunePreview, startUpdate } from '../services/updates.js';
+import { audit } from '../services/audit.js';
 
 const router = Router();
 
@@ -60,15 +61,15 @@ router.get('/prune', async (req: Request, res: Response) => {
 router.post('/prune', async (req: Request, res: Response) => {
   try {
     const b = req.body ?? {};
-    res.json(
-      await prune({
-        containers: b.containers === true,
-        images: b.images === 'dangling' || b.images === 'unused' ? b.images : false,
-        networks: b.networks === true,
-        buildCache: b.buildCache === true,
-        volumes: b.volumes === true,
-      }),
-    );
+    const result: any = await prune({
+      containers: b.containers === true,
+      images: b.images === 'dangling' || b.images === 'unused' ? b.images : false,
+      networks: b.networks === true,
+      buildCache: b.buildCache === true,
+      volumes: b.volumes === true,
+    });
+    void audit({ action: 'PRUNE', entityType: 'DOCKER', entityId: 'prune', newValues: result ?? {}, req });
+    res.json(result);
   } catch (e: any) {
     console.error('prune:', e.message);
     res.status(500).json({ error: String(e?.json?.message ?? e?.message ?? 'Échec du nettoyage') });
@@ -280,18 +281,7 @@ router.post('/:containerId/restart', async (req: Request, res: Response) => {
 
     await dockerService.restartContainer(containerId);
 
-    // Log audit
-    await db('audit_logs').insert({
-      id: uuidv4(),
-      action: 'RESTART',
-      entity_type: 'DOCKER_CONTAINER',
-      entity_id: containerId,
-      old_values: JSON.stringify({}),
-      new_values: JSON.stringify({ action: 'restart' }),
-      ip_address: req.ip || 'unknown',
-      user_agent: req.get('user-agent') || 'unknown',
-      created_at: new Date(),
-    });
+    void audit({ action: 'RESTART', entityType: 'DOCKER_CONTAINER', entityId: containerId, req });
 
     res.json({ success: true, message: `Container ${containerId} restarted` });
   } catch (error: any) {
@@ -310,18 +300,7 @@ router.post('/:containerId/stop', async (req: Request, res: Response) => {
 
     await dockerService.stopContainer(containerId);
 
-    // Log audit
-    await db('audit_logs').insert({
-      id: uuidv4(),
-      action: 'STOP',
-      entity_type: 'DOCKER_CONTAINER',
-      entity_id: containerId,
-      old_values: JSON.stringify({}),
-      new_values: JSON.stringify({ action: 'stop' }),
-      ip_address: req.ip || 'unknown',
-      user_agent: req.get('user-agent') || 'unknown',
-      created_at: new Date(),
-    });
+    void audit({ action: 'STOP', entityType: 'DOCKER_CONTAINER', entityId: containerId, req });
 
     res.json({ success: true, message: `Container ${containerId} stopped` });
   } catch (error: any) {
@@ -340,18 +319,7 @@ router.post('/:containerId/start', async (req: Request, res: Response) => {
 
     await dockerService.startContainer(containerId);
 
-    // Log audit
-    await db('audit_logs').insert({
-      id: uuidv4(),
-      action: 'START',
-      entity_type: 'DOCKER_CONTAINER',
-      entity_id: containerId,
-      old_values: JSON.stringify({}),
-      new_values: JSON.stringify({ action: 'start' }),
-      ip_address: req.ip || 'unknown',
-      user_agent: req.get('user-agent') || 'unknown',
-      created_at: new Date(),
-    });
+    void audit({ action: 'START', entityType: 'DOCKER_CONTAINER', entityId: containerId, req });
 
     res.json({ success: true, message: `Container ${containerId} started` });
   } catch (error: any) {

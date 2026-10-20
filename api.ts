@@ -99,6 +99,14 @@ export const servicesApi = {
     return res.json();
   },
 
+  /** Brings a deleted link back as it was (from its history line). */
+  async restore(id: string) {
+    const res = await fetch(`${API_URL}/api/services/${id}/restore`, { method: 'POST' });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(body?.error ?? 'Restauration impossible');
+    return body;
+  },
+
   async logAccess(id: string) {
     const res = await fetch(`${API_URL}/api/services/${id}/access`, {
       method: 'POST',
@@ -210,6 +218,8 @@ export interface LinkPreview {
   description: string | null;
   icon: string | null;
   reachable: boolean;
+  /** Set for github.com/<owner>/<repo> links. */
+  github?: { owner: string; repo: string };
 }
 
 // Links API: what the quick-add dialog reads from a pasted URL.
@@ -219,7 +229,59 @@ export const linksApi = {
     if (!res.ok) throw new Error('URL invalide');
     return res.json();
   },
+  /** Dead links of the last check, by service id. */
+  async dead(): Promise<Record<string, { reason: string; checkedAt: string }>> {
+    const res = await fetch(`${API_URL}/api/links/dead`);
+    if (!res.ok) return {};
+    return res.json();
+  },
+  /** Last link check report (null before the first one). */
+  async lastCheck(): Promise<LinkCheckReport | null> {
+    const res = await fetch(`${API_URL}/api/links/check`);
+    if (!res.ok) return null;
+    return res.json();
+  },
+  /** Checks every external link now: fills missing info, spots dead ones. */
+  async check(): Promise<LinkCheckReport> {
+    const res = await fetch(`${API_URL}/api/links/check`, { method: 'POST' });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(body?.error ?? 'Vérification impossible');
+    return body;
+  },
+  /** Hover card of an external link (cached a day by the backend). */
+  async card(url: string, signal?: AbortSignal): Promise<LinkCard> {
+    const res = await fetch(`${API_URL}/api/links/card?url=${encodeURIComponent(url)}`, { signal });
+    if (!res.ok) throw new Error('URL invalide');
+    return res.json();
+  },
 };
+
+export interface LinkCheckReport {
+  checkedAt: string;
+  checked: number;
+  filled: { id: string; name: string; changes: string[] }[];
+  dead: { id: string; name: string; url: string; reason: string }[];
+}
+
+export interface LinkCard {
+  image: string | null;
+  description: string | null;
+  title: string;
+}
+
+export type TimelineGroup = 'liens' | 'docker' | 'maison' | 'medias';
+export interface TimelineEntry {
+  id: string;
+  at: string;
+  group: TimelineGroup;
+  kind: string;
+  title: string;
+  subject: string;
+  detail?: string;
+  failed?: boolean;
+  /** Deleted link that can be brought back: its id. */
+  restoreId?: string;
+}
 
 // Theme API
 export const themeApi = {
@@ -387,6 +449,18 @@ export const auditApi = {
 
     const res = await fetch(`${API_URL}/api/audit/access/${serviceId}?${params}`);
     if (!res.ok) throw new Error('Failed to fetch access logs');
+    return res.json();
+  },
+
+  /** Readable action history, newest first; `before` pages back. */
+  async timeline(opts: { limit?: number; before?: string; group?: TimelineGroup; entity?: string[] } = {}): Promise<{ entries: TimelineEntry[]; more: boolean }> {
+    const params = new URLSearchParams();
+    if (opts.entity?.length) params.set('entity', opts.entity.join(','));
+    if (opts.limit) params.set('limit', String(opts.limit));
+    if (opts.before) params.set('before', opts.before);
+    if (opts.group) params.set('group', opts.group);
+    const res = await fetch(`${API_URL}/api/audit/timeline?${params}`);
+    if (!res.ok) throw new Error("Impossible de lire l'historique");
     return res.json();
   },
 

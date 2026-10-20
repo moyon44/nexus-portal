@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from '../db.js';
+import { audit } from '../services/audit.js';
 
 /**
  * Home Assistant widgets (frontend pages/Maison.tsx and the home page's
@@ -285,6 +286,13 @@ router.post('/control', async (req: Request, res: Response) => {
     // Give the device a moment, then report its new state.
     await new Promise((r) => setTimeout(r, 700));
     const s = await haFetch(`${ha.url}/api/states/${entityId}`, { headers: ha.headers });
+    void audit({
+      action: 'CONTROL',
+      entityType: 'HA_ENTITY',
+      entityId,
+      newValues: { action, name: s.attributes?.friendly_name ?? entityId, state: s.state, ...extra },
+      req,
+    });
     res.json({ ok: true, state: s.state });
   } catch (e: any) {
     res.status(502).json({ error: e.message });
