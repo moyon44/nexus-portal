@@ -338,7 +338,35 @@ export const petApi = {
     if (!res.ok) throw new Error('Failed to rename');
     return res.json();
   },
+  async live(): Promise<import('./lib/pet').PetLive> {
+    const res = await fetch(`${API_URL}/api/pet/live`);
+    if (!res.ok) throw new Error('Failed to fetch pet live');
+    return res.json();
+  },
+  async journal(before?: number): Promise<import('./lib/pet').PetEvent[]> {
+    const res = await fetch(`${API_URL}/api/pet/journal?limit=60${before ? `&before=${before}` : ''}`);
+    if (!res.ok) throw new Error('Carnet indisponible');
+    return res.json();
+  },
+  async badges(): Promise<import('./lib/pet').PetBadge[]> {
+    const res = await fetch(`${API_URL}/api/pet/badges`);
+    if (!res.ok) throw new Error('Succès indisponibles');
+    return res.json();
+  },
+  async wear(accessory: string | null): Promise<import('./lib/pet').PetState> {
+    return petSend('PUT', '/accessory', { accessory });
+  },
 };
+
+async function petSend(method: string, path: string, body?: unknown) {
+  const res = await fetch(`${API_URL}/api/pet${path}`, {
+    method,
+    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || 'Action impossible');
+  return res.json();
+}
 
 /** Containers, networks and live traffic for the infrastructure map. */
 export const topologyApi = {

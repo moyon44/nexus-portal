@@ -8,6 +8,8 @@ import type { Service } from '../types';
  */
 export interface ShellApi {
   openPalette: () => void;
+  /** The keyboard shortcuts sheet (also on `?`). */
+  openHelp: () => void;
   openQuickAdd: (opts?: { url?: string; folderId?: string; name?: string; container?: string }) => void;
   /** The "Ajouter" button hands its view-transition name to the open dialog. */
   quickAddOpen: boolean;

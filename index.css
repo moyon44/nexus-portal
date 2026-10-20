@@ -13,7 +13,7 @@
 @source inline("bg-{red,orange,yellow,lime,green,teal,cyan,blue,indigo,purple,pink,neutral}-{300,400,500}");
 
 /* ---------------------------------------------------------------------------
- * Design system: BoardUI, as used by Jellydash.
+ * Design system: BoardUI, as used by Jellydash (/srv/Jellydash/frontend).
  * styles/theme.css and styles/typography.css are copied verbatim from there;
  * this file carries the subset of Jellydash's globals.css the portal uses.
  *
@@ -1342,4 +1342,78 @@ html[data-lite] :is(.tile-ambient, .icon-ambient) {
   .link-preview {
     animation: none;
   }
+}
+
+/* Easter eggs (components/EasterEggs.tsx) ------------------------------------ */
+
+/* disco: the tiles flash on the beat (120 bpm), lights sweep, a mirror ball spins */
+html[data-disco] [data-tile] {
+  animation: egg-disco-tile 0.5s steps(1) infinite;
+  animation-delay: calc(var(--egg-i, 0) * -0.125s);
+}
+html[data-disco] [data-tile]:nth-child(4n + 1) { --egg-i: 1; }
+html[data-disco] [data-tile]:nth-child(4n + 2) { --egg-i: 2; }
+html[data-disco] [data-tile]:nth-child(4n + 3) { --egg-i: 3; }
+@keyframes egg-disco-tile {
+  0% { filter: hue-rotate(0deg) saturate(1.6) brightness(1.1); transform: translateY(0); }
+  25% { filter: hue-rotate(90deg) saturate(1.8); transform: translateY(-3px) rotate(-1deg); }
+  50% { filter: hue-rotate(180deg) saturate(1.6) brightness(1.15); transform: translateY(0); }
+  75% { filter: hue-rotate(270deg) saturate(1.8); transform: translateY(-3px) rotate(1deg); }
+}
+.egg-disco-lights {
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(14% 18% at 20% 30%, rgb(255 60 200 / 0.45), transparent 70%),
+    radial-gradient(12% 16% at 75% 25%, rgb(60 200 255 / 0.45), transparent 70%),
+    radial-gradient(16% 20% at 55% 75%, rgb(255 230 60 / 0.4), transparent 70%),
+    radial-gradient(12% 16% at 30% 80%, rgb(120 255 120 / 0.4), transparent 70%);
+  mix-blend-mode: screen;
+  animation: egg-disco-sweep 4s linear infinite;
+}
+@keyframes egg-disco-sweep { to { transform: rotate(360deg); } }
+.egg-disco-string {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 48px;
+  background: #888;
+  animation: egg-drop 0.7s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+.egg-disco-ball {
+  position: absolute;
+  top: 44px;
+  left: calc(50% - 44px);
+  width: 90px;
+  height: 90px;
+  border-radius: 9999px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 9px, rgb(0 0 0 / 0.35) 9px 10px),
+    repeating-linear-gradient(90deg, transparent 0 9px, rgb(0 0 0 / 0.35) 9px 10px),
+    conic-gradient(from 0deg, #fff, #9aa4b5, #fff, #6b7280, #fff, #c7d2fe, #fff);
+  box-shadow: 0 0 40px rgb(255 255 255 / 0.6), inset -12px -14px 24px rgb(0 0 0 / 0.45);
+  animation: egg-drop 0.7s cubic-bezier(0.3, 1.4, 0.5, 1) both, egg-ball-spin 2s linear infinite;
+}
+@keyframes egg-drop { from { translate: 0 -160px; } }
+@keyframes egg-ball-spin { to { background-position: 10px 0, 0 0, 0 0; filter: hue-rotate(40deg); } }
+
+/* matrix */
+.egg-matrix-text {
+  color: #b9ffc9;
+  text-shadow: 0 0 12px #22ff66;
+  animation: egg-matrix-text 8.5s ease-in-out both;
+}
+@keyframes egg-matrix-text {
+  0%, 30% { opacity: 0; }
+  40%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* 404 */
+.egg-404-joke { animation: egg-404-joke 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+@keyframes egg-404-joke { from { opacity: 0; scale: 0.6; } }
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-disco] [data-tile], .egg-disco-lights, .egg-disco-ball, .egg-disco-string { animation: none; }
 }

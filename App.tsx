@@ -17,6 +17,7 @@ import { Island, type IslandEvent } from './components/Island';
 import { PaperScraps } from './components/Doodle';
 import { SkinDecor } from './components/SkinDecor';
 import { Gravity } from './components/Gravity';
+import { EasterEggs } from './components/EasterEggs';
 import { FancyCursor } from './components/FancyCursor';
 import { probeLite } from './lib/lite';
 import { Wrapped, openWrapped } from './components/Wrapped';
@@ -132,6 +133,7 @@ const Shell: React.FC = () => {
   const shell = useMemo<ShellApi>(
     () => ({
       openPalette: () => setPaletteOpen(true),
+      openHelp: () => setHelpOpen(true),
       // "Ajouter" morphs into the dialog, a tile into its details panel.
       openQuickAdd: opts => withViewTransition(() => setQuickAdd(opts ?? {})),
       quickAddOpen: quickAdd !== null,
@@ -411,6 +413,7 @@ const Shell: React.FC = () => {
 
         <Island queue={island} onDone={id => setIsland(prev => prev.filter(e => e.id !== id))} />
         <Gravity />
+        <EasterEggs />
         <Wrapped />
         <Studio onActive={setStudioActive} />
         <FancyCursor />
@@ -419,19 +422,60 @@ const Shell: React.FC = () => {
   );
 };
 
-const SHORTCUTS: [string[], string][] = [
-  [['Ctrl', 'K'], 'Rechercher, ouvrir, lancer une action'],
-  [['/'], 'Rechercher'],
-  [['1', '…', '9'], 'Ouvrir le favori n°'],
-  [['G', 'lettre'], 'Aller à une catégorie (G I → Infrastructure)'],
-  [['G', 'A'], 'Administration'],
-  [['N'], 'Ajouter un lien (ou collez une adresse)'],
-  [['V'], 'Changer de style : cartes, liste, icônes, bento, texte'],
-  [['Clic droit'], 'Actions d’une tuile : onglet, copier, SSH, redémarrer'],
-  [['F'], 'Retourner la tuile sélectionnée (QR code, adresse, notes)'],
-  [['B', 'O', 'U', 'M'], 'Gravité : les tuiles tombent (Échap pour ranger)'],
-  [['Ctrl', ','], 'Basculer vers l’admin'],
-  [['?'], 'Cette aide'],
+/** The `?` sheet, by theme. Keep it in step with the handlers above and in the components. */
+const SHORTCUTS: { title: string; items: [string[], string][] }[] = [
+  {
+    title: 'Partout',
+    items: [
+      [['Ctrl', 'K'], 'Rechercher, ouvrir, lancer une action'],
+      [['/'], 'Rechercher'],
+      [['1', '…', '9'], 'Ouvrir le favori n°'],
+      [['G', 'lettre'], 'Aller à une catégorie (G I → Infrastructure)'],
+      [['G', 'A'], 'Administration'],
+      [['Ctrl', ','], 'Basculer vers l’admin'],
+      [['Échap'], 'Fermer, ou quitter le filtre des pannes'],
+      [['?'], 'Cette aide'],
+    ],
+  },
+  {
+    title: 'Liens',
+    items: [
+      [['N'], 'Ajouter un lien (ou collez une adresse)'],
+      [['Ctrl', 'clic'], 'Ouvrir dans un nouvel onglet'],
+      [['Clic droit'], 'Actions : copier, SSH, redémarrer, commenter, supprimer'],
+      [['Maj', 'F10'], 'Les mêmes actions au clavier (ou la touche Menu)'],
+      [['Maj', 'clic'], 'Sélectionner plusieurs liens'],
+      [['F'], 'Retourner la tuile sélectionnée (QR code, adresse, notes)'],
+      [['Survol'], 'Aperçu du site, ou état du service'],
+    ],
+  },
+  {
+    title: 'Palette et fenêtres',
+    items: [
+      [['↑', '↓'], 'Choisir'],
+      [['Entrée'], 'Ouvrir ou lancer'],
+      [['Ctrl', 'Entrée'], 'Ouvrir dans un nouvel onglet · enregistrer un commentaire'],
+    ],
+  },
+  {
+    title: 'Affichage',
+    items: [
+      [['V'], 'Changer de style : cartes, liste, icônes, bento, texte'],
+      [['←', '→'], 'Wrapped : histoire précédente / suivante'],
+      [['Espace'], 'Wrapped : pause'],
+    ],
+  },
+  {
+    title: 'Easter eggs · à taper n’importe où',
+    items: [
+      [['boum'], 'Gravité : les tuiles tombent, attrape-les'],
+      [['disco'], 'Boule à facettes, les tuiles dansent'],
+      [['matrix'], 'Pluie verte faite du nom de tes services'],
+      [['snake'], 'Un Snake qui mange les tuiles (flèches ou ZQSD)'],
+      [['404'], 'Le portail disparaît… pour de faux'],
+      [['Échap'], 'Arrêter'],
+    ],
+  },
 ];
 
 function ShortcutsHelp({ onClose }: { onClose: () => void }) {
@@ -441,29 +485,41 @@ function ShortcutsHelp({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-[15vh]">
+    <div className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-[10vh]">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Raccourcis clavier"
-        className="animate-dialog-in relative w-full max-w-md rounded-3xl border border-border-button-default bg-background-secondary-default p-5 shadow-waitlist"
+        className="animate-dialog-in relative flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-secondary-default shadow-waitlist"
       >
-        <h2 className="mb-3 text-headline-medium text-text-primary">Raccourcis clavier</h2>
-        <dl className="flex flex-col gap-2">
-          {SHORTCUTS.map(([keys, label]) => (
-            <div key={label} className="flex items-center justify-between gap-4 text-body-2-regular">
-              <dt className="text-text-secondary">{label}</dt>
-              <dd className="flex shrink-0 items-center gap-1">
-                {keys.map(k => (
-                  <Kbd key={k} className={cx(k.length > 2 && 'px-1.5')}>
-                    {k}
-                  </Kbd>
+        <div className="flex items-baseline justify-between gap-4 px-5 pt-5 pb-3">
+          <h2 className="text-headline-medium text-text-primary">Raccourcis clavier</h2>
+          <span className="text-body-2-regular text-text-tertiary">
+            <Kbd>Échap</Kbd> pour fermer
+          </span>
+        </div>
+        <div className="grid gap-x-8 gap-y-5 overflow-y-auto px-5 pb-5 md:grid-cols-2">
+          {SHORTCUTS.map(group => (
+            <section key={group.title} className="flex flex-col gap-2">
+              <h3 className="text-caption-1-medium tracking-[0.1em] text-text-tertiary uppercase">{group.title}</h3>
+              <dl className="flex flex-col gap-2">
+                {group.items.map(([keys, label]) => (
+                  <div key={label} className="flex items-center justify-between gap-4 text-body-2-regular">
+                    <dt className="text-text-secondary">{label}</dt>
+                    <dd className="flex shrink-0 items-center gap-1">
+                      {keys.map(k => (
+                        <Kbd key={k} className={cx(k.length > 2 && 'px-1.5')}>
+                          {k}
+                        </Kbd>
+                      ))}
+                    </dd>
+                  </div>
                 ))}
-              </dd>
-            </div>
+              </dl>
+            </section>
           ))}
-        </dl>
+        </div>
       </div>
     </div>
   );

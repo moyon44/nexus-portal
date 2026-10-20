@@ -2287,6 +2287,79 @@ html[data-skin="paper"] .update-badge { color: #f1eadb; background: #1d1a14; }
   60% { filter: brightness(2.5); transform: scale(1.3) rotate(15deg); }
   100% { filter: brightness(1); transform: scale(1); }
 }
+/* Watching TV: popcorn bounces, the cape sways, the duck bobs. */
+.pet-kernels circle:nth-child(odd) { animation: pet-pop 1.8s ease-in-out infinite; }
+.pet-kernels circle:nth-child(even) { animation: pet-pop 1.8s ease-in-out 0.6s infinite; }
+@keyframes pet-pop { 0%, 80%, 100% { translate: 0 0; } 88% { translate: 0 -1.2px; } }
+.pet-cape { animation: pet-sway 3s ease-in-out infinite alternate; transform-origin: 14px 9px; }
+@keyframes pet-sway { to { transform: skewX(-4deg); } }
+.pet-duck { animation: pet-bob-duck 2s ease-in-out infinite; }
+@keyframes pet-bob-duck { 50% { translate: 0 -0.6px; rotate: -3deg; } }
+.pet-stage.mood-watching { background-color: color-mix(in oklch, var(--color-chart-5) 14%, var(--color-background-tertiary-default)); }
+.pet-btn.is-on { background: color-mix(in oklch, var(--color-accent-500) 22%, var(--color-background-tertiary-default)); }
+
+/* Card tabs content. */
+.pet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-background-tertiary-default);
+  cursor: pointer;
+}
+.pet-chip:hover { color: var(--color-text-primary); }
+.pet-chip.is-on { color: var(--color-text-primary); background: color-mix(in oklch, var(--color-accent-500) 22%, var(--color-background-tertiary-default)); }
+.pet-chip:disabled { opacity: 0.5; cursor: default; }
+.pet-timeline > li.pet-ev + li.pet-ev .pet-dot::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 2px;
+  height: 14px;
+  translate: -1px 0;
+  background: var(--color-separator-border, var(--color-background-tertiary-default));
+}
+.pet-badge.is-locked { background: var(--color-background-tertiary-default); }
+.pet-badge.is-locked > span:first-child { opacity: 0.7; }
+
 @media (prefers-reduced-motion: reduce) {
   .pet-face *, .pet-big, .pet-alert, .pet-heart, .is-evolving .pet-face { animation: none !important; }
+}
+
+/* Nexy's passing moods (lib/pet.ts: sulky, digging, burping, clapping). */
+.pet-steam { animation: pet-steam 1.6s ease-out infinite; }
+.pet-face.is-sulky .pet-body { animation: pet-huff 2.4s ease-in-out infinite; transform-origin: 14px 27px; }
+.pet-bin-lid { animation: pet-lid 0.5s ease-in-out infinite alternate; transform-origin: 19px 18.4px; }
+.pet-toss { animation: pet-toss 1.1s ease-out infinite; }
+.pet-toss-2 { animation-delay: 0.55s; }
+.pet-face.is-digging .pet-body { animation: pet-rummage 0.35s ease-in-out infinite alternate; transform-origin: 14px 27px; }
+.pet-burp { animation: pet-burp 2.6s ease-out forwards; transform-origin: 23px 19px; }
+.pet-burp-mouth { animation: pet-chomp 0.3s ease-in-out 2 alternate; transform-origin: 14px 20.4px; }
+.pet-clap-l { animation: pet-clap-l 0.32s ease-in-out infinite alternate; }
+.pet-clap-r { animation: pet-clap-r 0.32s ease-in-out infinite alternate; }
+.pet-face.is-clapping .pet-body { animation: pet-hop 0.64s ease-in-out infinite; transform-origin: 14px 27px; }
+.pet-confetti rect { animation: pet-confetti 1.4s linear infinite; }
+.pet-confetti rect:nth-child(2) { animation-delay: 0.3s; }
+.pet-confetti rect:nth-child(3) { animation-delay: 0.6s; }
+.pet-confetti rect:nth-child(4) { animation-delay: 0.9s; }
+.pet-confetti rect:nth-child(5) { animation-delay: 1.1s; }
+@keyframes pet-steam { 0% { opacity: 0; translate: 0 1px; } 30% { opacity: 0.6; } 100% { opacity: 0; translate: 1px -3px; } }
+@keyframes pet-huff { 0%, 80%, 100% { scale: 1; } 88% { scale: 1.05 0.96; } }
+@keyframes pet-lid { to { rotate: -28deg; } }
+@keyframes pet-toss { 0% { opacity: 0; translate: 0 0; } 20% { opacity: 1; } 100% { opacity: 0; translate: -5px -9px; rotate: -200deg; } }
+@keyframes pet-rummage { to { rotate: 4deg; translate: 0.4px 0; } }
+@keyframes pet-burp { 0% { opacity: 0; scale: 0.4; } 15% { opacity: 1; scale: 1.15; } 30% { scale: 1; } 85% { opacity: 1; } 100% { opacity: 0; translate: 1px -3px; } }
+@keyframes pet-clap-l { to { translate: 2.4px -0.4px; } }
+@keyframes pet-clap-r { to { translate: -2.4px -0.4px; } }
+@keyframes pet-hop { 50% { translate: 0 -1.2px; } }
+@keyframes pet-confetti { 0% { opacity: 0; translate: 0 0; } 15% { opacity: 1; } 100% { opacity: 0; translate: 0 14px; rotate: 160deg; } }
+@media (prefers-reduced-motion: reduce) {
+  .pet-steam, .pet-bin-lid, .pet-toss, .pet-burp, .pet-burp-mouth, .pet-clap-l, .pet-clap-r, .pet-confetti rect,
+  .pet-face.is-sulky .pet-body, .pet-face.is-digging .pet-body, .pet-face.is-clapping .pet-body { animation: none; }
 }

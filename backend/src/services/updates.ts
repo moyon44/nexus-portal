@@ -1,5 +1,6 @@
 import Docker from 'dockerode';
 import os from 'os';
+import { logEvent } from './journal.js';
 import { audit } from './audit.js';
 
 /**
@@ -279,6 +280,7 @@ async function runUpdate(name: string) {
       await recreate(name, job);
       await settle(name, job);
       job.step = 'Mis à jour';
+      void logEvent('meal', `A mangé la mise à jour de ${name}`, ref, { container: name });
     }
     job.status = 'done';
     if (updated) void audit({ action: 'UPDATE_IMAGE', entityType: 'DOCKER_CONTAINER', entityId: name, newValues: { ok: true } });
@@ -287,6 +289,7 @@ async function runUpdate(name: string) {
   } catch (e: any) {
     job.status = 'failed';
     job.error = String(e?.json?.message ?? e?.message ?? e).slice(0, 240);
+    void logEvent('indigestion', `Indigestion : la mise à jour de ${name} a échoué`, job.error, { container: name });
     void audit({ action: 'UPDATE_IMAGE', entityType: 'DOCKER_CONTAINER', entityId: name, newValues: { ok: false, error: job.error } });
   } finally {
     job.endedAt = Date.now();
@@ -388,7 +391,8 @@ export async function prunePreview() {
   const own = (i: any) => Math.max(0, i.Size - Math.max(0, i.SharedSize ?? 0));
   const volumes = (df.Volumes ?? []).filter((v: any) => v.UsageData?.RefCount === 0);
   const anonymous = volumes.filter((v: any) => v.Labels?.['com.docker.volume.anonymous'] !== undefined || /^[0-9a-f]{64}$/.test(v.Name));
-  const cache = (df.BuildCache ?? []).filter((b: any) => !b.InUse);
+  // Shared records are layers of images still in use (containerd store): prune can't free them.
+  const cache = (df.BuildCache ?? []).filter((b: any) => !b.InUse && !b.Shared);
   const networks = (await docker.listNetworks()).filter(n => !['bridge', 'host', 'none'].includes(n.Name));
   let unusedNetworks = 0;
   for (const n of networks) {
@@ -434,5 +438,12 @@ export async function prune(o: PruneOptions) {
     freed.volumes = r.SpaceReclaimed ?? 0;
     removed.volumes = r.VolumesDeleted?.length ?? 0;
   }
-  return { freed, removed, total: Object.values(freed).reduce((a, b) => a + b, 0) };
+  const total = Object.values(freed).reduce((a, b) => a + b, 0);
+  const count = Object.values(removed).reduce((a, b) => a + b, 0);
+  if (total > 0 || count > 0) {
+    const go = total / 1024 ** 3;
+    const size = go >= 1 ? `${go.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Go` : `${Math.round(total / 1024 ** 2)} Mo`;
+    void logEvent('bath', `Un bon bain : ${size} libérés`, `${count} élément${count > 1 ? 's' : ''} Docker supprimé${count > 1 ? 's' : ''}`, { bytes: total });
+  }
+  return { freed, removed, total };
 }

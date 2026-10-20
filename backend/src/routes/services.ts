@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../db.js';
 import { checkNow, getHealth } from '../services/monitor.js';
+import { logEvent } from '../services/journal.js';
 
 const router = Router();
 
@@ -309,6 +310,7 @@ router.post('/:id/restore', async (req: Request, res: Response) => {
       ip_address: req.ip,
       user_agent: req.get('user-agent'),
     });
+    void logEvent('dig', `A fouillé la poubelle et retrouvé ${row.name}`, row.url, { service: id });
     res.json({ success: true, id, categoryId });
   } catch (error) {
     console.error(error);

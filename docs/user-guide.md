@@ -105,7 +105,8 @@ portal. Type anything; results are grouped:
 
 ## Keyboard shortcuts
 
-Press <kbd>?</kbd> for this list in the portal.
+Press <kbd>?</kbd> for this list in the portal (also « Raccourcis clavier »
+in the palette).
 
 | Keys | Action |
 | --- | --- |
@@ -116,6 +117,10 @@ Press <kbd>?</kbd> for this list in the portal.
 | <kbd>N</kbd> | Add a link |
 | <kbd>V</kbd> | Next display style |
 | <kbd>F</kbd> | Flip the selected tile |
+| <kbd>Ctrl</kbd>+click | Open in a new tab |
+| <kbd>Shift</kbd>+click | Select several links |
+| <kbd>Shift</kbd>+<kbd>F10</kbd> or the Menu key | A tile's actions (like a right-click) |
+| <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | Palette: open in a new tab · comment: save |
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | Administration |
 | <kbd>Esc</kbd> | Close; leave the "outages only" filter |
 | <kbd>?</kbd> | Shortcuts help |
@@ -163,12 +168,28 @@ palette):
   mirrors the server: sick when a service is down, hungry when image updates
   wait (*Nourrir* installs them), dirty when Docker has space to reclaim
   (*Laver* goes to the cleanup), tired when the disk fills or the CPU runs hot,
-  asleep at night.
+  asleep at night. It also reacts to what you do: it eats each finished image
+  update, takes a bath then burps after a Docker cleanup, digs in the bin when
+  a deleted link is restored, sulks while a service keeps falling (two drops
+  in 30 minutes), and claps for every full week without an outage. Its card
+  has a health book (*Carnet de santé*: outages, meals, baths, films watched…)
+  and achievements that unlock accessories.
 - **Nexus Wrapped** — your month as a story, Spotify Wrapped style: most
   opened links, uptime, outages… One slide at a time (tap or → to go on, hold
   to pause); the last one can be saved as a PNG. Offered the first days of
   each month for the month before.
-- **Gravity** — type <kbd>B</kbd> <kbd>O</kbd> <kbd>U</kbd> <kbd>M</kbd> and the
-  tiles fall to the bottom of the screen; <kbd>Esc</kbd> puts them back.
+- **Easter eggs** — type a word anywhere outside a text field (<kbd>Esc</kbd>
+  stops it; they are listed under <kbd>?</kbd>):
+
+  | Word | What happens |
+  | --- | --- |
+  | `boum` | Gravity: the tiles fall, grab and throw them |
+  | `disco` | A mirror ball drops in and the tiles dance on the beat |
+  | `matrix` | Green rain made of your services' names |
+  | `snake` | A playable Snake that eats your tiles (arrows or ZQSD / WASD) |
+  | `404` | The portal pretends to be gone for three seconds |
+
+  A key that starts one of these words waits a moment before acting, so
+  <kbd>N</kbd> and <kbd>4</kbd> still work as shortcuts.
 - **Installable** — the portal is a PWA: *Add to Home Screen* on a phone gives
   it its own icon and window.

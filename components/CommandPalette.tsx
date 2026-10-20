@@ -10,6 +10,7 @@ import {
   RiCursorLine,
   RiSpeedUpLine,
   RiAppleLine,
+  RiKeyboardLine,
   RiArrowRightLine,
   RiComputerLine,
   RiCornerDownLeftLine,
@@ -311,6 +312,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
             void updateTheme({ skin: k.key }).catch(() => undefined);
           }),
       })),
+      {
+        id: 'act-shortcuts',
+        group: 'Actions',
+        label: 'Raccourcis clavier',
+        sub: 'Toutes les touches · aussi avec ?',
+        keywords: 'aide help clavier keyboard touches shortcuts raccourci',
+        icon: { kind: 'icon', icon: RiKeyboardLine },
+        run: () => shell.openHelp(),
+      },
       {
         id: 'act-gravity',
         group: 'Actions',

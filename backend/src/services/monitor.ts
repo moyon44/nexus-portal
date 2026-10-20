@@ -3,6 +3,7 @@ import https from 'https';
 import { URL } from 'url';
 import db from '../db.js';
 import { dockerService } from './docker.js';
+import { logEvent } from './journal.js';
 
 /**
  * Background health monitor for the home page tiles, in the spirit of Uptime
@@ -238,6 +239,7 @@ async function checkService(service: any): Promise<void> {
 
   const prev = health.get(service.id);
   const history = [...(prev?.history ?? []), sample].slice(-HISTORY_SIZE);
+  noteTransition(service.name, prev?.history ?? [], sample);
   pending.push({ service_id: service.id, t: new Date(sample.t), up, ms: sample.ms });
   const u = uptime.get(service.id);
   health.set(service.id, {
@@ -252,6 +254,18 @@ async function checkService(service: any): Promise<void> {
         : undefined,
     checkedAt: sample.t,
   });
+}
+
+/** For the creature's health book: an outage is 2+ failed checks in a row, like the Island. */
+function noteTransition(name: string, before: HealthSample[], sample: HealthSample) {
+  let downs = 0;
+  for (let i = before.length - 1; i >= 0 && !before[i].up; i--) downs++;
+  if (!sample.up && downs === 1) {
+    void logEvent('sick', `${name} ne répond plus`, null, { service: name });
+  } else if (sample.up && downs >= 2) {
+    const min = Math.max(1, Math.round((sample.t - before[before.length - downs].t) / 60_000));
+    void logEvent('healed', `${name} est revenu`, `Après ${min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`} de panne`, { service: name, minutes: min });
+  }
 }
 
 export async function runChecks(): Promise<void> {

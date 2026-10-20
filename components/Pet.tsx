@@ -7,7 +7,9 @@ import { useShell, dayPart } from '../lib/shell';
 import { maintenanceApi, petApi } from '../api';
 import { useSystemStats } from '../hooks/useSystemStats';
 import { reducedMotion } from '../lib/motion';
-import { moodLine, moodOf, needsOf, STAGE_EMOJI, type Needs, type PetMood, type PetStage, type PetState } from '../lib/pet';
+import { moodLine, moodOf, needsOf, PET_EVENT, STAGE_EMOJI, type Needs, type PetAccessory, type PetLive, type PetMood, type PetStage, type PetState } from '../lib/pet';
+import { PetBadges, PetJournal, PetWatching } from './PetTabs';
+import { SegmentedControl } from './ui/segmented-control';
 import { updateQueue } from '../lib/updates';
 import { cx } from '../utils/cx';
 
@@ -21,19 +23,23 @@ import { cx } from '../utils/cx';
  *  - Mood from live data (lib/pet.ts): sick when a service is down, hungry
  *    when image updates wait, dirty when Docker has junk to prune, tired
  *    when the disk is full, asleep at night, otherwise happy.
- *  - It eats when an update finishes, takes a bath after a cleanup
- *    (window event "portail:pet" {action: 'bath'}), and says so when it
- *    evolves.
+ *  - It eats when an update finishes, takes a bath then burps after a
+ *    cleanup (window event "portail:pet" {action: 'bath'}), digs in the bin
+ *    when a deleted link is restored ({action: 'dig'}), sulks while a
+ *    service keeps falling, claps for each week without outage, and says
+ *    so when it evolves.
  *
  * Click the mark for its card: gauges, what it needs, caress / feed / wash.
  */
 
-const PET_EVENT = 'portail:pet';
 
-/** Lets other parts of the app make it react (e.g. Maintenance after a prune). */
-export function petReact(action: 'bath' | 'eat') {
-  window.dispatchEvent(new CustomEvent(PET_EVENT, { detail: { action } }));
-}
+type Tab = 'fiche' | 'carnet' | 'succes';
+const TAB_LABEL: Record<Tab, string> = { fiche: 'Fiche', carnet: 'Carnet de santé', succes: 'Succès' };
+
+export { petReact } from '../lib/pet';
+
+/** Week of the current no-outage streak already applauded (per device). */
+const CLAP_KEY = 'portail:pet-clap';
 
 /* ---- Eyes follow the pointer, blink now and then ---------------------------- */
 
@@ -82,13 +88,32 @@ function useEyes(ref: React.RefObject<Element | null>, asleep: boolean) {
 const heart = (cx: number, cy: number, s: number) =>
   `M${cx} ${cy + s * 0.9} C ${cx - s * 1.6} ${cy - s * 0.1}, ${cx - s * 0.8} ${cy - s * 1.4}, ${cx} ${cy - s * 0.5} C ${cx + s * 0.8} ${cy - s * 1.4}, ${cx + s * 1.6} ${cy - s * 0.1}, ${cx} ${cy + s * 0.9} Z`;
 
-export function PetFace({ stage, mood, size, look, blink }: { stage: PetStage; mood: PetMood; size: number; look: { x: number; y: number }; blink: boolean }) {
+export function PetFace({
+  stage,
+  mood,
+  size,
+  look: eyesLook,
+  blink,
+  accessory = null,
+}: {
+  stage: PetStage;
+  mood: PetMood;
+  size: number;
+  look: { x: number; y: number };
+  blink: boolean;
+  accessory?: PetAccessory | null;
+}) {
   const uid = useId().replace(/:/g, '');
   const egg = stage === 'egg';
   const legend = stage === 'legend';
   const asleep = mood === 'sleeping';
+  // Happy squint: ^ ^ while clapping or after a big burp.
+  const squint = mood === 'clapping' || mood === 'burping';
   const closed = asleep || blink;
   const half = mood === 'tired';
+  // Watching: eyes on the screen (up and to the left), whatever the pointer does.
+  const look =
+    mood === 'watching' ? { x: -1.2, y: -0.9 } : mood === 'sulky' ? { x: 1.7, y: 0.3 } : mood === 'digging' ? { x: 1.4, y: 1.3 } : eyesLook;
   const eyeY = egg ? 16.5 : 14.5;
   const eyes = egg ? [10.5, 17.5] : [9.5, 18.5];
   const r = egg ? 2.6 : 3.3;
@@ -109,9 +134,12 @@ export function PetFace({ stage, mood, size, look, blink }: { stage: PetStage; m
         </linearGradient>
       </defs>
 
+      {/* Cape (behind the body) */}
+      {accessory === 'cape' && <path d="M4 9 Q -2.5 20 -1.5 28.5 L 29.5 28.5 Q 30.5 20 24 9 Z" fill="#7c3aed" stroke="#5b21b6" strokeWidth="0.6" className="pet-cape" />}
+
       {/* Halo (légende), antenna (ado, adulte) */}
       {legend && <ellipse cx="14" cy="-3.2" rx="7" ry="2" fill="none" stroke="#fbbf24" strokeWidth="1.4" className="pet-halo" />}
-      {(stage === 'teen' || stage === 'adult') && (
+      {(stage === 'teen' || stage === 'adult') && !['cap', 'chef', 'duck', 'crown', 'helmet'].includes(accessory ?? '') && (
         <g className="pet-antenna">
           <path d="M14 1.5 Q 15.5 -1.5 14 -4" stroke={colors[1]} strokeWidth="1.3" fill="none" strokeLinecap="round" />
           {stage === 'adult' ? (
@@ -141,8 +169,8 @@ export function PetFace({ stage, mood, size, look, blink }: { stage: PetStage; m
         </g>
       )}
 
-      {/* Brows when sick */}
-      {mood === 'sick' && (
+      {/* Brows when sick, frowning when sulking */}
+      {(mood === 'sick' || mood === 'sulky') && (
         <g stroke="white" strokeWidth="1.5" strokeLinecap="round">
           <line x1="6.8" y1="8.6" x2="11.4" y2="10.1" />
           <line x1="21.2" y1="8.6" x2="16.6" y2="10.1" />
@@ -154,6 +182,8 @@ export function PetFace({ stage, mood, size, look, blink }: { stage: PetStage; m
         <g key={x}>
           {mood === 'loved' ? (
             <path d={heart(x, eyeY, 2.2)} fill="#ff5c8a" />
+          ) : squint && !egg ? (
+            <path d={`M${x - 3} ${eyeY + 1} q3 -3.2 6 0`} stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none" />
           ) : closed ? (
             <path d={asleep ? `M${x - 3} ${eyeY} q3 2.2 6 0` : `M${x - 3} ${eyeY} h6`} stroke={egg ? '#5b4a2c' : 'white'} strokeWidth="1.5" strokeLinecap="round" fill="none" />
           ) : (
@@ -167,16 +197,25 @@ export function PetFace({ stage, mood, size, look, blink }: { stage: PetStage; m
       ))}
 
       {/* Cheeks */}
-      {!egg && (stage === 'adult' || legend || mood === 'happy' || mood === 'loved' || mood === 'eating') && (
-        <g fill="#ff8fb1" opacity="0.75">
-          <circle cx="5.8" cy="19" r="1.7" />
-          <circle cx="22.2" cy="19" r="1.7" />
+      {!egg && mood === 'sulky' ? (
+        // Puffed, red cheeks.
+        <g fill="#ff6b6b" opacity="0.85">
+          <circle cx="5.6" cy="19" r="2.5" />
+          <circle cx="22.4" cy="19" r="2.5" />
         </g>
+      ) : (
+        !egg &&
+        (stage === 'adult' || legend || mood === 'happy' || mood === 'loved' || mood === 'eating' || mood === 'clapping' || mood === 'burping') && (
+          <g fill="#ff8fb1" opacity="0.75">
+            <circle cx="5.8" cy="19" r="1.7" />
+            <circle cx="22.2" cy="19" r="1.7" />
+          </g>
+        )
       )}
 
       {/* Mouth */}
       {!egg &&
-        (mood === 'eating' ? (
+        (mood === 'eating' || mood === 'watching' ? (
           <ellipse cx="14" cy="20.3" rx="2.6" ry="1.8" fill="#3b0d1a" className="pet-chomp" />
         ) : mood === 'hungry' ? (
           <>
@@ -189,9 +228,89 @@ export function PetFace({ stage, mood, size, look, blink }: { stage: PetStage; m
           <path d="M11.5 20.5 h5" stroke="white" strokeWidth="1.4" strokeLinecap="round" />
         ) : mood === 'sleeping' ? (
           <circle cx="14" cy="20.4" r="0.9" fill="white" opacity="0.8" />
+        ) : mood === 'sulky' ? (
+          <path d="M11.4 21.4 q2.6 -2 5.2 0" stroke="white" strokeWidth="1.4" strokeLinecap="round" fill="none" />
+        ) : mood === 'digging' ? (
+          <circle cx="15" cy="20.6" r="1.1" fill="#3b0d1a" />
+        ) : mood === 'burping' ? (
+          <ellipse cx="14" cy="20.4" rx="2.3" ry="2.5" fill="#3b0d1a" className="pet-burp-mouth" />
         ) : (
-          <path d={mood === 'loved' || mood === 'bath' ? 'M10.6 19.2 q3.4 3.6 6.8 0 z' : 'M11 19.5 q3 2.6 6 0'} stroke="white" strokeWidth="1.4" strokeLinecap="round" fill={mood === 'loved' || mood === 'bath' ? '#3b0d1a' : 'none'} />
+          <path
+            d={mood === 'loved' || mood === 'bath' || mood === 'clapping' ? 'M10.6 19.2 q3.4 3.6 6.8 0 z' : 'M11 19.5 q3 2.6 6 0'}
+            stroke="white"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            fill={mood === 'loved' || mood === 'bath' || mood === 'clapping' ? '#3b0d1a' : 'none'}
+          />
         ))}
+
+      {/* Accessories */}
+      {accessory && <Accessory kind={accessory} eyes={eyes} eyeY={eyeY} />}
+
+      {/* Popcorn while watching */}
+      {mood === 'watching' && (
+        <g className="pet-popcorn">
+          <g className="pet-kernels" fill="#fff7d6" stroke="#f5d48a" strokeWidth="0.4">
+            <circle cx="21" cy="19.6" r="1.6" />
+            <circle cx="23.6" cy="19" r="1.7" />
+            <circle cx="26.1" cy="19.7" r="1.5" />
+            <circle cx="22.4" cy="17.8" r="1.4" />
+            <circle cx="25" cy="17.4" r="1.4" />
+          </g>
+          <path d="M19.2 20.2 h8.6 l-1.1 8 h-6.4 z" fill="#fff" stroke="#e11d48" strokeWidth="0.5" />
+          <path d="M21 20.2 l.5 8 M23.5 20.2 v8 M26 20.2 l-.5 8" stroke="#e11d48" strokeWidth="1.1" />
+        </g>
+      )}
+
+      {/* Sulking: a little cloud of steam */}
+      {mood === 'sulky' && (
+        <g className="pet-steam" fill="currentColor" opacity="0.5">
+          <circle cx="25.5" cy="2.5" r="1.6" />
+          <circle cx="27.6" cy="1.2" r="1.2" />
+          <circle cx="23.8" cy="0.8" r="1" />
+        </g>
+      )}
+
+      {/* Digging in the bin for the restored link */}
+      {mood === 'digging' && (
+        <g className="pet-bin">
+          <g className="pet-bin-lid">
+            <rect x="18.6" y="17.6" width="9.6" height="1.6" rx="0.6" fill="#9ca3af" />
+            <rect x="22.2" y="16.6" width="2.4" height="1.2" rx="0.5" fill="#9ca3af" />
+          </g>
+          <path d="M19.4 19.6 h8 l-0.9 8.4 h-6.2 z" fill="#6b7280" />
+          <path d="M21.6 20.8 v6 M23.4 20.8 v6 M25.2 20.8 v6" stroke="#4b5563" strokeWidth="0.6" />
+          <circle cx="23.4" cy="17" r="1.4" fill="#fde68a" stroke="#d6b44a" strokeWidth="0.4" className="pet-toss" />
+          <rect x="21.4" y="15.6" width="2.4" height="1.8" rx="0.3" fill="#fff" stroke="#cbd5e1" strokeWidth="0.3" className="pet-toss pet-toss-2" />
+        </g>
+      )}
+
+      {/* Burp */}
+      {mood === 'burping' && (
+        <g className="pet-burp">
+          <circle cx="23.5" cy="19.5" r="2.4" fill="#bef264" opacity="0.55" />
+          <text x="20.4" y="15.4" fontSize="5.2" fontWeight="800" fill="currentColor">
+            burp
+          </text>
+        </g>
+      )}
+
+      {/* Clapping, with confetti */}
+      {mood === 'clapping' && (
+        <>
+          <g fill="#ffd8a8" stroke="#e8a96a" strokeWidth="0.4">
+            <ellipse cx="10.6" cy="25.2" rx="2" ry="1.7" className="pet-clap-l" />
+            <ellipse cx="17.4" cy="25.2" rx="2" ry="1.7" className="pet-clap-r" />
+          </g>
+          <g className="pet-confetti">
+            <rect x="0" y="2" width="1.4" height="2.4" fill="#f472b6" />
+            <rect x="26" y="4" width="1.4" height="2.4" fill="#60a5fa" />
+            <rect x="5" y="-2" width="1.4" height="2.4" fill="#facc15" />
+            <rect x="21" y="-1.6" width="1.4" height="2.4" fill="#34d399" />
+            <rect x="13.4" y="-3.6" width="1.4" height="2.4" fill="#a78bfa" />
+          </g>
+        </>
+      )}
 
       {/* Extras */}
       {mood === 'sick' && <path d="M24.5 4.5 q1.4 2 0 3 q-1.4 -1 0 -3z" fill="#9bd7ff" className="pet-sweat" />}
@@ -217,6 +336,84 @@ export function PetFace({ stage, mood, size, look, blink }: { stage: PetStage; m
       )}
     </svg>
   );
+}
+
+/** Hats on top of the head (y < 3), glasses over the eyes. */
+function Accessory({ kind, eyes, eyeY }: { kind: PetAccessory; eyes: number[]; eyeY: number }) {
+  const [l, r] = eyes;
+  switch (kind) {
+    case 'cap':
+      return (
+        <g>
+          <path d="M6 3 Q 14 -6.5 22 3 Z" fill="#ef4444" />
+          <path d="M17.5 2.2 h9.2 q1.2 .2 0 1.6 h-9.2 z" fill="#b91c1c" />
+          <circle cx="14" cy="-1.6" r="0.9" fill="#fecaca" />
+        </g>
+      );
+    case 'chef':
+      return (
+        <g fill="#fff" stroke="#d1d5db" strokeWidth="0.6">
+          <rect x="8" y="-1.5" width="12" height="4.5" rx="1" />
+          <circle cx="9.8" cy="-3.5" r="3" />
+          <circle cx="14" cy="-5.2" r="3.6" />
+          <circle cx="18.2" cy="-3.5" r="3" />
+        </g>
+      );
+    case 'duck':
+      return (
+        <g className="pet-duck">
+          <ellipse cx="15.5" cy="-1" rx="4.4" ry="2.7" fill="#fde047" />
+          <circle cx="11.6" cy="-4" r="2.3" fill="#fde047" />
+          <path d="M9.6 -4.3 l-2.2 .6 2.2 .9 z" fill="#fb923c" />
+          <circle cx="11.2" cy="-4.6" r="0.45" fill="#111" />
+          <path d="M14.6 -1.6 q2 1.4 3.6 -.4" stroke="#eab308" strokeWidth="0.6" fill="none" />
+        </g>
+      );
+    case 'crown':
+      return (
+        <g>
+          <path d="M7.5 3 L7 -3.2 L10.6 -0.2 L14 -5.2 L17.4 -0.2 L21 -3.2 L20.5 3 Z" fill="#fbbf24" stroke="#d97706" strokeWidth="0.6" strokeLinejoin="round" />
+          <circle cx="14" cy="0.6" r="1" fill="#ef4444" />
+          <circle cx="10.2" cy="1.2" r="0.7" fill="#3b82f6" />
+          <circle cx="17.8" cy="1.2" r="0.7" fill="#22c55e" />
+        </g>
+      );
+    case 'helmet':
+      return (
+        <g>
+          <path d="M4.8 4 Q 14 -8.5 23.2 4 Z" fill="#facc15" />
+          <rect x="2.6" y="2.8" width="22.8" height="2.2" rx="1" fill="#eab308" />
+          <path d="M14 -3.6 V3" stroke="#eab308" strokeWidth="1.4" />
+        </g>
+      );
+    case 'bow':
+      return (
+        <g transform="translate(21.5 2.2) rotate(-18)">
+          <path d="M0 0 L-4.2 -2.6 L-4.2 2.6 Z M0 0 L4.2 -2.6 L4.2 2.6 Z" fill="#f472b6" stroke="#db2777" strokeWidth="0.5" strokeLinejoin="round" />
+          <circle r="1.2" fill="#db2777" />
+        </g>
+      );
+    case 'glasses':
+    case 'glasses3d': {
+      const lens = (x: number, fill: string) => <rect x={x - 3.9} y={eyeY - 3.1} width="7.8" height="5.8" rx="2" fill={fill} />;
+      return kind === 'glasses' ? (
+        <g>
+          {lens(l, '#111827')}
+          {lens(r, '#111827')}
+          <path d={`M${l + 3.9} ${eyeY - 1} h${r - l - 7.8}`} stroke="#111827" strokeWidth="1.1" />
+          <path d={`M${l - 2.4} ${eyeY - 1.8} l2 -0.8`} stroke="#fff" strokeWidth="0.7" strokeLinecap="round" opacity="0.6" />
+        </g>
+      ) : (
+        <g stroke="#f8fafc" strokeWidth="0.9">
+          {lens(l, 'rgba(239, 68, 68, 0.75)')}
+          {lens(r, 'rgba(34, 211, 238, 0.75)')}
+          <path d={`M${l + 3.9} ${eyeY - 1} h${r - l - 7.8}`} />
+        </g>
+      );
+    }
+    default:
+      return null;
+  }
 }
 
 /* ---- The creature, in the sidebar, and its card ---------------------------- */
@@ -255,6 +452,8 @@ export const Pet: React.FC = () => {
   const big = useRef<HTMLDivElement>(null);
   const prevStage = useRef<PetStage | null>(null);
   const jobEnds = useRef<Map<string, number> | null>(null);
+  const [live, setLive] = useState<PetLive | null>(null);
+  const [tab, setTab] = useState<Tab>('fiche');
 
   const load = useCallback(() => petApi.get().then(setPet).catch(() => undefined), []);
   const loadReclaim = useCallback(
@@ -265,16 +464,20 @@ export const Pet: React.FC = () => {
         .catch(() => undefined),
     [],
   );
+  const loadLive = useCallback(() => petApi.live().then(setLive).catch(() => undefined), []);
   useEffect(() => {
     load();
     loadReclaim();
+    loadLive();
     const a = setInterval(load, 5 * 60_000);
     const b = setInterval(loadReclaim, 30 * 60_000);
+    const c = setInterval(loadLive, 20_000);
     return () => {
       clearInterval(a);
       clearInterval(b);
+      clearInterval(c);
     };
-  }, [load, loadReclaim]);
+  }, [load, loadReclaim, loadLive]);
 
   const flash = useCallback((mood: PetMood, ms = 4000) => {
     setOverride(mood);
@@ -292,13 +495,37 @@ export const Pet: React.FC = () => {
     const on = (e: Event) => {
       const action = (e as CustomEvent<{ action: string }>).detail?.action;
       if (action === 'bath') {
-        flash('bath');
+        // A good soak… then the junk has to come out somewhere.
+        flash('bath', 3200);
+        window.setTimeout(() => flash('burping', 2600), 3200);
         loadReclaim();
       } else if (action === 'eat') flash('eating');
+      else if (action === 'dig') flash('digging', 4200);
     };
     window.addEventListener(PET_EVENT, on);
     return () => window.removeEventListener(PET_EVENT, on);
   }, [flash, loadReclaim]);
+
+  // Applause for each full week without outage (once per week of the streak).
+  useEffect(() => {
+    if (!pet || pet.streakHours < 168) return;
+    const week = Math.floor(pet.streakHours / 168);
+    const streakStart = Math.round(Date.now() / 3600_000) - pet.streakHours;
+    const key = `${streakStart}:${week}`;
+    try {
+      // The start hour drifts by one around the hour mark: compare loosely.
+      const [prevStart, prevWeek] = (window.localStorage.getItem(CLAP_KEY) ?? '').split(':').map(Number);
+      if (prevWeek === week && Math.abs(prevStart - streakStart) <= 1) return;
+      window.localStorage.setItem(CLAP_KEY, key);
+    } catch {
+      return;
+    }
+    const t = window.setTimeout(() => {
+      flash('clapping', 6000);
+      notify(`👏 ${week === 1 ? 'Une semaine' : `${week} semaines`} sans panne ! ${pet.name} applaudit`, 'ok');
+    }, 1500);
+    return () => window.clearTimeout(t);
+  }, [pet?.streakHours]);
 
   // Evolution.
   useEffect(() => {
@@ -311,7 +538,8 @@ export const Pet: React.FC = () => {
     prevStage.current = pet.stage;
   }, [pet?.stage]);
 
-  const needs: Needs = needsOf(data, reclaim, stats?.disk.usage ?? null, stats?.cpu.usage ?? null);
+  const needs: Needs = needsOf(data, reclaim, stats?.disk.usage ?? null, stats?.cpu.usage ?? null, live?.watching ?? []);
+  const accessory = pet?.accessory ?? null;
   const mood: PetMood = override ?? moodOf(needs, dayPart() === 'night');
   const stage: PetStage = pet?.stage ?? 'baby';
   const smallEyes = useEyes(small, mood === 'sleeping');
@@ -374,7 +602,7 @@ export const Pet: React.FC = () => {
         }}
         className={cx('pet-mark relative grid size-7 shrink-0 cursor-pointer place-items-center rounded-[9px] text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring', evolving && 'is-evolving')}
       >
-        <PetFace stage={stage} mood={mood} size={28} look={smallEyes.look} blink={smallEyes.blink} />
+        <PetFace stage={stage} mood={mood} size={28} look={smallEyes.look} blink={smallEyes.blink} accessory={accessory} />
         {mood !== 'happy' && mood !== 'sleeping' && !open && <span aria-hidden className="pet-alert" />}
       </span>
 
@@ -386,8 +614,12 @@ export const Pet: React.FC = () => {
               role="dialog"
               aria-label={`Fiche de ${pet.name}`}
               onClick={e => e.stopPropagation()}
-              className="pet-card animate-dialog-in absolute flex w-[310px] flex-col gap-3 rounded-3xl border border-border-button-default bg-background-secondary-default p-4 shadow-waitlist"
-              style={{ left: Math.max(12, (rect?.left ?? 16) - 4), top: (rect?.bottom ?? 40) + 12 }}
+              className="pet-card animate-dialog-in absolute flex w-[min(380px,calc(100vw-24px))] flex-col gap-3 overflow-y-auto [&>*]:shrink-0 overscroll-contain rounded-3xl border border-border-button-default bg-background-secondary-default p-4 shadow-waitlist"
+              style={{
+                left: Math.max(12, Math.min((rect?.left ?? 16) - 4, window.innerWidth - 392)),
+                top: (rect?.bottom ?? 40) + 12,
+                maxHeight: `calc(100dvh - ${(rect?.bottom ?? 40) + 24}px)`,
+              }}
             >
               <button type="button" onClick={() => setOpen(false)} aria-label="Fermer" className="absolute top-3 right-3 grid size-7 cursor-pointer place-items-center rounded-lg text-foreground-icon-tertiary hover:bg-background-tertiary-default">
                 <RiCloseLine className="size-4" aria-hidden />
@@ -396,7 +628,7 @@ export const Pet: React.FC = () => {
               <div className="flex items-center gap-4">
                 <div ref={big} className={cx('pet-stage relative grid size-[104px] shrink-0 place-items-center rounded-3xl text-text-secondary', `mood-${mood}`, evolving && 'is-evolving')}>
                   <button type="button" onClick={caress} aria-label={`Caresser ${pet.name}`} className="pet-big cursor-pointer outline-none">
-                    <PetFace stage={stage} mood={mood} size={72} look={bigEyes.look} blink={bigEyes.blink} />
+                    <PetFace stage={stage} mood={mood} size={72} look={bigEyes.look} blink={bigEyes.blink} accessory={accessory} />
                   </button>
                   {hearts.map(h => (
                     <RiHeart3Fill key={h} className="pet-heart pointer-events-none absolute size-5 text-[#ff5c8a]" style={{ left: `${30 + ((h / 7) % 40)}%` }} aria-hidden />
@@ -430,49 +662,70 @@ export const Pet: React.FC = () => {
                 </div>
               </div>
 
-              <p className="pet-bubble rounded-2xl bg-background-tertiary-default px-3 py-2 text-body-2-regular text-text-primary">{moodLine(mood, needs, pet.name)}</p>
+              <SegmentedControl<Tab>
+                label="Fiche de la créature"
+                value={tab}
+                onChange={setTab}
+                options={[
+                  { key: 'fiche', label: '🐾' },
+                  { key: 'carnet', label: '📖' },
+                  { key: 'succes', label: '🏆' },
+                ]}
+                className="w-full [&>*]:flex-1"
+              />
+              <span className="-mt-1.5 text-center text-caption-1-medium text-text-tertiary">{TAB_LABEL[tab]}</span>
 
-              <div className="flex flex-col gap-1">
-                <div className="flex justify-between text-caption-1-medium text-text-tertiary">
-                  <span>{pet.xp} XP</span>
-                  <span>
-                    {pet.next ? (stage === 'egg' ? `Éclosion à ${pet.next.from} XP : caresse-le !` : `${pet.next.label} à ${pet.next.from} XP`) : 'Forme ultime atteinte'}
+              {tab === 'fiche' && (
+                <>
+                <p className="pet-bubble rounded-2xl bg-background-tertiary-default px-3 py-2 text-body-2-regular text-text-primary">{moodLine(mood, needs, pet.name)}</p>
+
+                <PetWatching watching={live?.watching ?? []} />
+
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-caption-1-medium text-text-tertiary">
+                    <span>{pet.xp} XP</span>
+                    <span>
+                      {pet.next ? (stage === 'egg' ? `Éclosion à ${pet.next.from} XP : caresse-le !` : `${pet.next.label} à ${pet.next.from} XP`) : 'Forme ultime atteinte'}
+                    </span>
+                  </div>
+                  <span className="relative h-2 overflow-hidden rounded-full bg-chart-track">
+                    <span className="pet-xp absolute inset-y-0 left-0 rounded-full" style={{ width: `${progress}%` }} />
                   </span>
                 </div>
-                <span className="relative h-2 overflow-hidden rounded-full bg-chart-track">
-                  <span className="pet-xp absolute inset-y-0 left-0 rounded-full" style={{ width: `${progress}%` }} />
-                </span>
-              </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Gauge icon="❤️" label="Santé" value={needs.health} />
-                <Gauge icon="🍖" label="Satiété" value={needs.food} />
-                <Gauge icon="🫧" label="Propreté" value={needs.clean} />
-                <Gauge icon="⚡" label="Énergie" value={needs.energy} />
-              </div>
+                <div className="flex flex-col gap-1.5">
+                  <Gauge icon="❤️" label="Santé" value={needs.health} />
+                  <Gauge icon="🍖" label="Satiété" value={needs.food} />
+                  <Gauge icon="🫧" label="Propreté" value={needs.clean} />
+                  <Gauge icon="⚡" label="Énergie" value={needs.energy} />
+                </div>
 
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={caress} className="pet-btn">
-                  💕 Caresser{pet.petsLeft ? ` (${pet.petsLeft})` : ''}
-                </button>
-                {needs.pending > 0 && (
-                  <button type="button" className="pet-btn" disabled={feeding} onClick={feed} title="Lance les mises à jour d’images en attente">
-                    {feeding ? '🍖 Il mange…' : feedAsk ? `🍖 Confirmer ? (${needs.pending} conteneur${needs.pending > 1 ? 's' : ''} redémarre${needs.pending > 1 ? 'nt' : ''})` : `🍖 Nourrir (${needs.pending})`}
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={caress} className="pet-btn">
+                    💕 Caresser{pet.petsLeft ? ` (${pet.petsLeft})` : ''}
                   </button>
-                )}
-                {needs.clean < 90 && (
-                  <button
-                    type="button"
-                    className="pet-btn"
-                    onClick={() => {
-                      setOpen(false);
-                      navigate('/systeme', { viewTransition: true });
-                    }}
-                  >
-                    🛁 Laver
-                  </button>
-                )}
-              </div>
+                  {needs.pending > 0 && (
+                    <button type="button" className="pet-btn" disabled={feeding} onClick={feed} title="Lance les mises à jour d’images en attente">
+                      {feeding ? '🍖 Il mange…' : feedAsk ? `🍖 Confirmer ? (${needs.pending} conteneur${needs.pending > 1 ? 's' : ''} redémarre${needs.pending > 1 ? 'nt' : ''})` : `🍖 Nourrir (${needs.pending})`}
+                    </button>
+                  )}
+                  {needs.clean < 90 && (
+                    <button
+                      type="button"
+                      className="pet-btn"
+                      onClick={() => {
+                        setOpen(false);
+                        navigate('/systeme', { viewTransition: true });
+                      }}
+                    >
+                      🛁 Laver
+                    </button>
+                  )}
+                </div>
+                </>
+              )}
+              {tab === 'carnet' && <PetJournal />}
+              {tab === 'succes' && <PetBadges pet={pet} onPet={setPet} />}
             </div>
           </div>,
           document.body,

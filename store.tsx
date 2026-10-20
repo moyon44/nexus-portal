@@ -3,6 +3,7 @@ import { AppData, Service, Category, ThemeConfig } from './types';
 import { servicesApi, categoriesApi, themeApi, integrationsApi, skinsApi, maintenanceApi } from './api';
 import { isSkin, setCustomSkins, type CustomSkin } from './theme/skins';
 import { normalize } from './theme/customSkin';
+import { petReact } from './lib/pet';
 
 interface DashboardContextType {
   data: AppData;
@@ -265,6 +266,7 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
   const restoreServices = async (ids: string[]) => {
     try {
       for (const id of ids) await servicesApi.restore(id);
+      petReact('dig');
     } finally {
       await loadData();
     }

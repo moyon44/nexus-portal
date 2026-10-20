@@ -16,6 +16,7 @@ import petRouter from './routes/pet.js';
 import { startPet } from './services/pet.js';
 import { dockerService } from './services/docker.js';
 import { startMonitor } from './services/monitor.js';
+import { startTvWatch } from './services/tv.js';
 import { startUpdateChecks } from './services/updates.js';
 import { startLinkChecks } from './services/linkcheck.js';
 import { startDiscovery } from './services/discovery.js';
@@ -94,6 +95,7 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
   startUpdateChecks();
   startLinkChecks();
   startPet();
+  void startTvWatch();
   startDiscovery();
   startContainerSampler();
   startWidgets();
